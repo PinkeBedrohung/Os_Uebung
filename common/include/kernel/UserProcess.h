@@ -2,7 +2,7 @@
 
 #include "Thread.h"
 
-class UserProcess : public Thread
+class UserProcess
 {
   public:
     /**
@@ -16,9 +16,22 @@ class UserProcess : public Thread
 
     virtual ~UserProcess();
 
-    virtual void Run(); // not used
+    int32 getFd();
+    Thread* getThread();
+    size_t getPID();
+    ustl::string getFilename();
+    Loader *getLoader();
+    uint32 getTerminalNumber();
+    FileSystemInfo *getFsInfo();
+
+    static const size_t MAX_PID = 4194304;
 
   private:
     int32 fd_;
+    size_t pid_;
+    ustl::string filename_;
+    Loader *loader_;
+    Thread *thread_;
+    FileSystemInfo *fs_info_;
+    uint32 terminal_number_;
 };
-

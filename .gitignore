@@ -21,6 +21,7 @@ sweb.kdev*
 .cdtproject
 .cdtbuild
 .idea
+.vscode
 cmake-build-*/*
 
 # OS-specific files
