@@ -39,9 +39,8 @@ class ProcessRegistry : public Thread
     static ProcessRegistry* instance();
     void createProcess(const char* path);
 
-    uint32 getUnusedPID();
-
-    void releasePID(uint32 pid);
+    size_t getNewPID();
+    void releasePID(size_t pid);
 
   private:
 
@@ -52,7 +51,7 @@ class ProcessRegistry : public Thread
     static ProcessRegistry* instance_;
 
     Mutex list_lock_;
-    ustl::list<uint32> used_pids;
-    ustl::list<uint32> unused_pids;
+    ustl::list<size_t> used_pids_;
+    ustl::list<size_t> unused_pids_;
 
 };

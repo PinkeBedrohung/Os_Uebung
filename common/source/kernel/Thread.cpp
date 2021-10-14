@@ -190,3 +190,7 @@ void Thread::setState(ThreadState new_state)
 
   state_ = new_state;
 }
+
+void Thread::setThreadID(size_t tid){
+  tid_ = tid;
+}

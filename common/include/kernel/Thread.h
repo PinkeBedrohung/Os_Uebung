@@ -124,6 +124,8 @@ class Thread
      */
     Lock* holding_lock_list_;
 
+    void setThreadID(size_t tid);
+
   private:
     Thread(Thread const &src);
     Thread &operator=(Thread const &src);

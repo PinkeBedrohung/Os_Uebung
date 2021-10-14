@@ -97,75 +97,75 @@ size_t ProcessRegistry::processCount()
 void ProcessRegistry::createProcess(const char* path)
 {
   debug(PROCESS_REG, "create process %s\n", path);
-  UserProcess* process = new UserProcess(path, new FileSystemInfo(*working_dir_), getUnusedPID());
+  UserProcess* process = new UserProcess(path, new FileSystemInfo(*working_dir_), getNewPID());
   debug(PROCESS_REG, "created userprocess %s\n", path);
   Scheduler::instance()->addNewThread(process->getThread());
   debug(PROCESS_REG, "added thread %s\n", path);
 }
 
-uint32 ProcessRegistry::getUnusedPID(){
-  uint32 new_pid = 0;
+size_t ProcessRegistry::getNewPID(){
+  size_t new_pid = 0;
 
   list_lock_.acquire();
   // No released pid exists -> get a new pid from progs_running_
-  if (unused_pids.size() == 0)
+  if (unused_pids_.size() == 0)
   {
     counter_lock_.acquire();
     new_pid = progs_running_;
     counter_lock_.release();
 
-    used_pids.push_back(new_pid);
+    used_pids_.push_back(new_pid);
     list_lock_.release();
 
-    debug(PROCESS_REG, "Added new PID %u to the used PID list\n", new_pid);
+    debug(PROCESS_REG, "Added new PID %zu to the used PID list\n", new_pid);
     return new_pid;
   }
 
   // Read the first element in the unused_pids list and pop it
-  new_pid = unused_pids.front();
-  unused_pids.pop_front();
+  new_pid = unused_pids_.front();
+  unused_pids_.pop_front();
   // Add the popped pid to the used_pids list
-  used_pids.insert(used_pids.end(), new_pid);
+  used_pids_.insert(used_pids_.end(), new_pid);
   list_lock_.release();
 
-  debug(PROCESS_REG, "Moved PID %u from the unused to the used PID list\n", new_pid);
+  debug(PROCESS_REG, "Moved PID %zu from the unused to the used PID list\n", new_pid);
   return new_pid;
 }
 
-void ProcessRegistry::releasePID(uint32 pid){
+void ProcessRegistry::releasePID(size_t pid){
   list_lock_.acquire();
 
   // Find the pid in the used_pids via an iterator (element deletion)
-  auto itr = ustl::find(used_pids.begin(), used_pids.end(), pid);
+  auto itr = ustl::find(used_pids_.begin(), used_pids_.end(), pid);
 
   // Checks if the pid is occuring in the used list / valid
-  assert(itr != used_pids.end());
+  assert(itr != used_pids_.end());
 
   // Delete the pid from the used_pids list
-  used_pids.erase(itr);
+  used_pids_.erase(itr);
   
   // Insert the pid to the right position (ascending order)
-  if (unused_pids.size() != 0){
-    for (auto itr = unused_pids.begin(); itr != unused_pids.end();itr++)
+  if (unused_pids_.size() != 0){
+    for (auto itr = unused_pids_.begin(); itr != unused_pids_.end();itr++)
     { 
       if(pid > *itr)
       {
-        unused_pids.insert(itr+1, pid);
+        unused_pids_.insert(itr+1, pid);
         break;
       }
       else 
       {
-        unused_pids.insert(itr, pid);
+        unused_pids_.insert(itr, pid);
         break;
       }
     }
   } 
   else {
     // First element in the list
-    unused_pids.push_back(pid);
+    unused_pids_.push_back(pid);
   }
 
   list_lock_.release();
   
-  debug(PROCESS_REG, "Released PID %u from the used PID list\n", pid);
+  debug(PROCESS_REG, "Released PID %zu from the used PID list\n", pid);
 }
