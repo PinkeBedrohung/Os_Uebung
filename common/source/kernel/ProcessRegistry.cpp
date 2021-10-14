@@ -107,6 +107,7 @@ uint32 ProcessRegistry::getUnusedPID(){
   uint32 new_pid = 0;
 
   list_lock_.acquire();
+  // No released pid exists -> get a new pid from progs_running_
   if (unused_pids.size() == 0)
   {
     counter_lock_.acquire();
@@ -115,12 +116,16 @@ uint32 ProcessRegistry::getUnusedPID(){
 
     used_pids.push_back(new_pid);
     list_lock_.release();
+
     debug(PROCESS_REG, "Added new PID %u to the used PID list\n", new_pid);
     return new_pid;
   }
 
+  // Read the first element in the unused_pids list and pop it
   new_pid = unused_pids.front();
   unused_pids.pop_front();
+  // Add the popped pid to the used_pids list
+  used_pids.insert(used_pids.end(), new_pid);
   list_lock_.release();
 
   debug(PROCESS_REG, "Moved PID %u from the unused to the used PID list\n", new_pid);
@@ -130,22 +135,37 @@ uint32 ProcessRegistry::getUnusedPID(){
 void ProcessRegistry::releasePID(uint32 pid){
   list_lock_.acquire();
 
-  size_t pid_index = (size_t)-1;
-  for (pid_index = 0; pid_index < used_pids.size(); pid_index++)
-  {
-    if(used_pids.at(pid_index) == pid)
-      break;
-  }
-  assert(pid_index != (size_t)-1);
+  // Find the pid in the used_pids via an iterator (element deletion)
+  auto itr = ustl::find(used_pids.begin(), used_pids.end(), pid);
 
-  auto pid_itr = ustl::find(used_pids.begin(), used_pids.end(), pid);
+  // Checks if the pid is occuring in the used list / valid
+  assert(itr != used_pids.end());
 
-  if(pid_itr != used_pids.end()){
-    used_pids.erase(pid_itr);
+  // Delete the pid from the used_pids list
+  used_pids.erase(itr);
+  
+  // Insert the pid to the right position (ascending order)
+  if (unused_pids.size() != 0){
+    for (auto itr = unused_pids.begin(); itr != unused_pids.end();itr++)
+    { 
+      if(pid > *itr)
+      {
+        unused_pids.insert(itr+1, pid);
+        break;
+      }
+      else 
+      {
+        unused_pids.insert(itr, pid);
+        break;
+      }
+    }
+  } 
+  else {
+    // First element in the list
+    unused_pids.push_back(pid);
   }
-  unused_pids.push_back(pid);
 
   list_lock_.release();
-
+  
   debug(PROCESS_REG, "Released PID %u from the used PID list\n", pid);
 }
