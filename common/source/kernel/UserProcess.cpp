@@ -11,8 +11,8 @@
 #include "offsets.h"
 #include "UserThread.h"
 
-UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 terminal_number) : 
-        fd_(VfsSyscall::open(filename, O_RDONLY)), filename_(filename), fs_info_(fs_info), terminal_number_(terminal_number)
+UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 pid, uint32 terminal_number) : 
+        fd_(VfsSyscall::open(filename, O_RDONLY)), pid_(pid), filename_(filename), fs_info_(fs_info), terminal_number_(terminal_number)
 {
   ProcessRegistry::instance()->processStart(); //should also be called if you fork a process
   

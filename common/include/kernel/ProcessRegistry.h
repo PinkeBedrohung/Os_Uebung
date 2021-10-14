@@ -3,6 +3,7 @@
 #include "Thread.h"
 #include "Mutex.h"
 #include "Condition.h"
+#include "ulist.h"
 
 class ProcessRegistry : public Thread
 {
@@ -38,6 +39,10 @@ class ProcessRegistry : public Thread
     static ProcessRegistry* instance();
     void createProcess(const char* path);
 
+    uint32 getUnusedPID();
+
+    void releasePID(uint32 pid);
+
   private:
 
     char const **progs_;
@@ -45,5 +50,9 @@ class ProcessRegistry : public Thread
     Mutex counter_lock_;
     Condition all_processes_killed_;
     static ProcessRegistry* instance_;
-};
 
+    Mutex list_lock_;
+    ustl::list<uint32> used_pids;
+    ustl::list<uint32> unused_pids;
+
+};

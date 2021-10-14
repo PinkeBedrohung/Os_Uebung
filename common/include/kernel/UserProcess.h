@@ -12,7 +12,7 @@ class UserProcess
      * @param terminal_number the terminal to run in (default 0)
      *
      */
-    UserProcess(ustl::string minixfs_filename, FileSystemInfo *fs_info, uint32 terminal_number = 0);
+    UserProcess(ustl::string minixfs_filename, FileSystemInfo *fs_info, uint32 pid, uint32 terminal_number = 0);
 
     virtual ~UserProcess();
 
@@ -28,7 +28,7 @@ class UserProcess
 
   private:
     int32 fd_;
-    size_t pid_;
+    uint32 pid_;
     ustl::string filename_;
     Loader *loader_;
     Thread *thread_;
