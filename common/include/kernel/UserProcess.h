@@ -1,10 +1,13 @@
 #pragma once
 
 #include "Thread.h"
+#include "ulist.h"
+#include "Mutex.h"
 
 class UserProcess
 {
   public:
+    typedef ustl::list<Thread *> ThreadList;
     /**
      * Constructor
      * @param minixfs_filename filename of the file in minixfs to execute
@@ -17,13 +20,16 @@ class UserProcess
     virtual ~UserProcess();
 
     int32 getFd();
-    Thread* getThread();
+    ThreadList* getThreads();
     size_t getPID();
     ustl::string getFilename();
     Loader *getLoader();
     uint32 getTerminalNumber();
     FileSystemInfo *getFsInfo();
 
+    void add_thread(Thread *thread);
+    void remove_thread(Thread *thread);
+    size_t getNumThreads();
     static const size_t MAX_PID = 4194304;
 
   private:
@@ -34,4 +40,8 @@ class UserProcess
     Thread *thread_;
     FileSystemInfo *fs_info_;
     uint32 terminal_number_;
+
+    Mutex threads_lock_;
+    ThreadList threads_;
+    size_t num_threads_;
 };

@@ -14,5 +14,6 @@ public:
     UserThread(UserProcess *process);
     ~UserThread();
     virtual void Run(); // not used
+    UserProcess *getProcess();
 };
 

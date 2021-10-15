@@ -126,6 +126,8 @@ class Thread
 
     void setThreadID(size_t tid);
 
+    TYPE getThreadType();
+
   private:
     Thread(Thread const &src);
     Thread &operator=(Thread const &src);
@@ -135,6 +137,8 @@ class Thread
     size_t tid_;
 
     Terminal* my_terminal_;
+
+    TYPE thread_type_;
 
   protected:
     ThreadState getState() const;

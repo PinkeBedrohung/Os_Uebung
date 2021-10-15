@@ -46,16 +46,21 @@ UserThread::~UserThread()
 {
     assert(Scheduler::instance()->isCurrentlyCleaningUp());
 
-    debug(USERTHREAD, "Destructor UserThread - TID %zu\n", getTID());
+    debug(USERTHREAD, "~UserThread - TID %zu\n", getTID());
 
     delete working_dir_;
     working_dir_ = 0;
-    
-    delete process_;
+
+    if (process_->getNumThreads() == 0)
+        delete process_;
 }
 
 void UserThread::Run()
 {
-    debug(USERPROCESS, "Run: Fail-safe kernel panic - you probably have forgotten to set switch_to_userspace_ = 1\n");
+    debug(USERTHREAD, "Run: Fail-safe kernel panic - you probably have forgotten to set switch_to_userspace_ = 1\n");
     assert(false);
+}
+
+UserProcess *UserThread::getProcess(){
+    return process_;
 }

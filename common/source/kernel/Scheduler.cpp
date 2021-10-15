@@ -13,6 +13,7 @@
 #include "umap.h"
 #include "ustring.h"
 #include "Lock.h"
+#include "UserThread.h"
 
 ArchThreadRegisters *currentThreadRegisters;
 Thread *currentThread;
@@ -146,6 +147,12 @@ void Scheduler::cleanupDeadThreads()
     for (uint32 i = 0; i < thread_count; ++i)
     {
       releaseTID(destroy_list[i]->getTID());
+      
+      if (destroy_list[i]->getThreadType() == Thread::USER_THREAD)
+      {
+        debug(SCHEDULER, "Remove thread TID %zu from process PID %zu\n", destroy_list[i]->getTID(), ((UserThread *)destroy_list[i])->getProcess()->getPID());
+        ((UserThread *)destroy_list[i])->getProcess()->remove_thread(destroy_list[i]);
+      }
       delete destroy_list[i];
     }
     debug(SCHEDULER, "cleanupDeadThreads: done\n");
