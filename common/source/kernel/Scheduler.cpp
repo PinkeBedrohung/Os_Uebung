@@ -147,7 +147,7 @@ void Scheduler::cleanupDeadThreads()
     for (uint32 i = 0; i < thread_count; ++i)
     {
       releaseTID(destroy_list[i]->getTID());
-      
+
       if (destroy_list[i]->getThreadType() == Thread::USER_THREAD)
       {
         debug(SCHEDULER, "Remove thread TID %zu from process PID %zu\n", destroy_list[i]->getTID(), ((UserThread *)destroy_list[i])->getProcess()->getPID());
@@ -260,7 +260,7 @@ size_t Scheduler::getNewTID(){
     used_tids_.push_back(new_tid);
     list_lock_.release();
 
-    debug(THREAD, "Added new TID %zu to the used TID list\n", new_tid);
+    debug(SCHEDULER, "Added new TID %zu to the used TID list\n", new_tid);
     return new_tid;
   }
 
@@ -271,7 +271,7 @@ size_t Scheduler::getNewTID(){
   used_tids_.insert(used_tids_.end(), new_tid);
   list_lock_.release();
 
-  debug(THREAD, "Moved TID %zu from the unused to the used TID list\n", new_tid);
+  debug(SCHEDULER, "Moved TID %zu from the unused to the used TID list\n", new_tid);
   return new_tid;
 }
 
@@ -310,5 +310,5 @@ void Scheduler::releaseTID(size_t tid){
 
   list_lock_.release();
   
-  debug(THREAD, "Released TID %zu from the used TID list\n", tid);
+  debug(SCHEDULER, "Released TID %zu from the used TID list\n", tid);
 }
