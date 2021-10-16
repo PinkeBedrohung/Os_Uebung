@@ -1,7 +1,6 @@
 #include <mm/KernelMemoryManager.h>
 #include "ProcessRegistry.h"
 #include "Scheduler.h"
-#include "UserProcess.h"
 #include "kprintf.h"
 #include "VfsSyscall.h"
 #include "VirtualFileSystem.h"
@@ -101,6 +100,14 @@ void ProcessRegistry::createProcess(const char* path)
   debug(PROCESS_REG, "created userprocess %s\n", path);
   Scheduler::instance()->addNewThread(process->getThreads()->front());
   debug(PROCESS_REG, "added thread %s\n", path);
+}
+
+void ProcessRegistry::createProcess(UserProcess *process)
+{
+  ustl::string path = process->getFilename();
+  debug(PROCESS_REG, "created forked userprocess %s\n", path.c_str());
+  Scheduler::instance()->addNewThread(process->getThreads()->front());
+  debug(PROCESS_REG, "added thread %s\n", path.c_str());
 }
 
 size_t ProcessRegistry::getNewPID(){

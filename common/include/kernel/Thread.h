@@ -39,7 +39,7 @@ class Thread
      * @return Thread instance
      */
     Thread(FileSystemInfo* working_dir, ustl::string name, Thread::TYPE type);
-
+    Thread();
     virtual ~Thread();
 
     /**

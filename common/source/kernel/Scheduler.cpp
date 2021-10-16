@@ -151,7 +151,7 @@ void Scheduler::cleanupDeadThreads()
       if (destroy_list[i]->getThreadType() == Thread::USER_THREAD)
       {
         debug(SCHEDULER, "Remove thread TID %zu from process PID %zu\n", destroy_list[i]->getTID(), ((UserThread *)destroy_list[i])->getProcess()->getPID());
-        ((UserThread *)destroy_list[i])->getProcess()->remove_thread(destroy_list[i]);
+        ((UserThread *)destroy_list[i])->getProcess()->removeThread(destroy_list[i]);
       }
       delete destroy_list[i];
     }

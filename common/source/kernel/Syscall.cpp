@@ -5,6 +5,7 @@
 #include "debug_bochs.h"
 #include "VfsSyscall.h"
 #include "UserProcess.h"
+#include "UserThread.h"
 #include "ProcessRegistry.h"
 #include "File.h"
 
@@ -49,6 +50,9 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
       break;
     case sc_pseudols:
       VfsSyscall::readdir((const char*) arg1);
+      break;
+    case sc_fork:
+      return_value = fork();
       break;
     default:
       kprintf("Syscall::syscall_exception: Unimplemented Syscall Number %zd\n", syscall_number);
@@ -170,3 +174,10 @@ void Syscall::trace()
   currentThread->printBacktrace();
 }
 
+size_t Syscall::fork()
+{
+  UserProcess *new_process = new UserProcess(*((UserThread *)currentThread)->getProcess(), (UserThread*)currentThread);
+
+  ProcessRegistry::instance()->createProcess(new_process);
+  return currentThread->getTID();
+}

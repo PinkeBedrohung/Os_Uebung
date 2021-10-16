@@ -3,6 +3,8 @@
 #include "Thread.h"
 #include "UserProcess.h"
 
+class UserProcess;
+
 class UserThread : public Thread
 {
 private:
@@ -11,7 +13,8 @@ private:
     uint32 terminal_number_;
 
 public:
-    UserThread(UserProcess *process);
+    UserThread(UserProcess *process, bool forked = false);
+    UserThread(UserThread &thread, UserProcess* process = NULL);
     ~UserThread();
     virtual void Run(); // not used
     UserProcess *getProcess();

@@ -4,6 +4,7 @@
 #include "Mutex.h"
 #include "Condition.h"
 #include "ulist.h"
+#include "UserProcess.h"
 
 class ProcessRegistry : public Thread
 {
@@ -38,6 +39,7 @@ class ProcessRegistry : public Thread
 
     static ProcessRegistry* instance();
     void createProcess(const char* path);
+    void createProcess(UserProcess *process);
 
     size_t getNewPID();
     void releasePID(size_t pid);

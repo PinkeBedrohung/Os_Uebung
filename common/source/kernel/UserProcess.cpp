@@ -20,7 +20,38 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
   if (fd_ >= 0)
       loader_ = new Loader(fd_);
 
-  add_thread(new UserThread(this));
+  if (!loader_ || !loader_->loadExecutableAndInitProcess())
+  {
+    debug(USERPROCESS, "Error: loading %s failed!\n", filename.c_str());
+    ProcessRegistry::instance()->processExit();
+    ProcessRegistry::instance()->releasePID(pid);
+    return;
+  }
+
+  addThread(new UserThread(this));
+}
+
+UserProcess::UserProcess(UserProcess &process, UserThread *thread) : fd_(process.getFd()), pid_(ProcessRegistry::instance()->getNewPID()),
+         filename_(process.getFilename()), loader_(process.getLoader()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
+         terminal_number_(process.getTerminalNumber()), threads_lock_("UserProcess::threads_lock_"), num_threads_(0)
+{
+  ProcessRegistry::instance()->processStart();
+
+  loader_ = new Loader(fd_);
+  
+  if (!loader_ || !loader_->loadExecutableAndInitProcess())
+  {
+    debug(USERPROCESS, "Error: loading %s failed!\n", filename_.c_str());
+    ProcessRegistry::instance()->processExit();
+    ProcessRegistry::instance()->releasePID(pid_);
+    return;
+  }
+  
+  loader_->arch_memory_.page_map_level_4_ = process.getLoader()->arch_memory_.page_map_level_4_;
+
+  UserThread *new_thread = new UserThread(*thread, this);
+
+  addThread(new_thread);
 }
 
 UserProcess::~UserProcess()
@@ -40,6 +71,10 @@ UserProcess::~UserProcess()
 // This function needs to be changed or substituted with other methods
 UserProcess::ThreadList* UserProcess::getThreads(){
   return &threads_;
+}
+
+void UserProcess::setPID(size_t pid){
+  pid_ = pid;
 }
 
 size_t UserProcess::getPID(){
@@ -66,7 +101,7 @@ int32 UserProcess::getFd(){
   return fd_;
 }
 
-void UserProcess::add_thread(Thread *thread){
+void UserProcess::addThread(Thread *thread){
   assert(thread);
   
   threads_lock_.acquire();
@@ -74,10 +109,10 @@ void UserProcess::add_thread(Thread *thread){
   num_threads_++;
   threads_lock_.release();
 
-  debug(USERPROCESS, "Added thread with TID %zu to process with PID %zu\n", thread->getTID(), getPID());
+  //debug(USERPROCESS, "Added thread with TID %zu to process with PID %zu\n", thread->getTID(), getPID());
 }
 
-void UserProcess::remove_thread(Thread *thread){
+void UserProcess::removeThread(Thread *thread){
   assert(thread);
 
   threads_lock_.acquire();

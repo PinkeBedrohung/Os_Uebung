@@ -3,6 +3,9 @@
 #include "Thread.h"
 #include "ulist.h"
 #include "Mutex.h"
+#include "UserThread.h"
+
+class UserThread;
 
 class UserProcess
 {
@@ -16,28 +19,29 @@ class UserProcess
      *
      */
     UserProcess(ustl::string minixfs_filename, FileSystemInfo *fs_info, uint32 pid, uint32 terminal_number = 0);
+    UserProcess(UserProcess &process, UserThread *thread = NULL);
 
     virtual ~UserProcess();
 
     int32 getFd();
     ThreadList* getThreads();
     size_t getPID();
+    void setPID(size_t pid);
     ustl::string getFilename();
     Loader *getLoader();
     uint32 getTerminalNumber();
     FileSystemInfo *getFsInfo();
 
-    void add_thread(Thread *thread);
-    void remove_thread(Thread *thread);
+    void addThread(Thread *thread);
+    void removeThread(Thread *thread);
     size_t getNumThreads();
-    static const size_t MAX_PID = 4194304;
+    //static const size_t MAX_PID = 4194304;
 
   private:
     int32 fd_;
     uint32 pid_;
     ustl::string filename_;
     Loader *loader_;
-    Thread *thread_;
     FileSystemInfo *fs_info_;
     uint32 terminal_number_;
 
