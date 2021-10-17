@@ -49,7 +49,10 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
       trace();
       break;
     case sc_pthread_create:
-      return_value = createThread(arg1, arg2, arg3, arg4);
+      return_value = createThread(arg1, arg2, arg3, arg4, arg5);
+      break;
+    case sc_pthread_exit:
+      exitThread(arg1);
       break;
     case sc_pseudols:
       VfsSyscall::readdir((const char*) arg1);
@@ -174,17 +177,26 @@ void Syscall::trace()
   currentThread->printBacktrace();
 }
 
-size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, size_t arg)
+size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, size_t arg, size_t entry_function)
 {
   if((size_t)start_routine >= USER_BREAK || (size_t)arg >= USER_BREAK) return -1U;
   if((size_t)thread < USER_BREAK || (size_t)attr < USER_BREAK || (size_t)start_routine < USER_BREAK)
   {
     UserProcess* uprocess = ((UserThread*)currentThread)->getProcess();
-    return uprocess->createThread(uprocess, (void* (*)(void*))start_routine, (void*) arg, false);
+    return uprocess->createUserThread((size_t*) thread, (void* (*)(void*))start_routine, (void*) arg, (void*) entry_function);
   }
   else
   {
     exit(50);
     return -1U;
   }
+}
+
+size_t Syscall::exitThread(size_t retval)
+{
+  // TODO: Add retval to process for join
+  if (retval) {}
+  // TODO: End
+  currentThread->kill();
+  return 0;
 }

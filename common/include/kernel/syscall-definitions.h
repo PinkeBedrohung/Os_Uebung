@@ -18,3 +18,4 @@
 #define sc_trace 252
 
 #define sc_pthread_create 50
+#define sc_pthread_exit 51

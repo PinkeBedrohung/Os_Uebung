@@ -16,7 +16,7 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
         terminal_number_(terminal_number), threads_lock_("UserProcess::threads_lock_"), num_threads_(0)
 {
   ProcessRegistry::instance()->processStart(); //should also be called if you fork a process
-  
+  created_threads_ = 0;
    if (fd_ >= 0)
         loader_ = new Loader(fd_);
 
@@ -75,12 +75,13 @@ int32 UserProcess::getFd(){
   return fd_;
 }
 
-void UserProcess::add_thread(Thread *thread){
+void UserProcess::add_thread(Thread *thread) {
   assert(thread);
   
   threads_lock_.acquire();
   threads_.push_back(thread);
   num_threads_++;
+  created_threads_++;
   threads_lock_.release();
 
   debug(USERPROCESS, "Added thread with TID %zu to process with PID %zu\n", thread->getTID(), getPID());
@@ -107,23 +108,12 @@ void UserProcess::remove_thread(Thread *thread){
 size_t UserProcess::getNumThreads(){
   return num_threads_;
 }
-size_t UserProcess::createThread(UserProcess* uprocess,
-                                 void* (*routine)(void*), void* args, bool is_first)
+
+size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void* args, void* entry_function)
 {
-  Thread* thread = new UserThread(uprocess, routine, args, is_first);
-  
-  threads_lock_.acquire();
-  if(thread != NULL)
-  {
-    //threads_[thread->getTID()]= thread;
-  
-    Scheduler::instance()->addNewThread(thread);
-    debug(USERTHREAD, "successfully created thread <%s tid %d>.\n", thread->getName(), (int) thread->getTID());
-    threads_lock_.release();
-    return 0;
-  }
-  else{
-    threads_lock_.release();
-    return -1U;
-  }
+  Thread* thread = new UserThread(this, tid, routine, args, entry_function);
+  add_thread(thread);
+
+  Scheduler::instance()->addNewThread(thread);
+  return 0;
 }

@@ -31,8 +31,9 @@ class UserProcess
     void remove_thread(Thread *thread);
     size_t getNumThreads();
     static const size_t MAX_PID = 4194304;
-    size_t createThread(UserProcess* uprocess,
-                                 void* (*routine)(void*), void* args, bool is_first);
+    size_t createUserThread(size_t* tid, void* (*routine)(void*), void* args, void* entry_function);
+
+    size_t created_threads_;
 
   private:
     int32 fd_;
@@ -45,5 +46,5 @@ class UserProcess
 
     Mutex threads_lock_;
     ThreadList threads_;
-    size_t num_threads_;
+    size_t num_threads_;  
 };
