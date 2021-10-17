@@ -116,10 +116,11 @@ size_t UserProcess::createThread(UserProcess* uprocess,
   if(thread != NULL)
   {
     //threads_[thread->getTID()]= thread;
-  
+    
     Scheduler::instance()->addNewThread(thread);
     debug(USERTHREAD, "successfully created thread <%s tid %d>.\n", thread->getName(), (int) thread->getTID());
     threads_lock_.release();
+    add_thread(thread);
     return 0;
   }
   else{
