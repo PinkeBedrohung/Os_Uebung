@@ -8,6 +8,8 @@
 #include "UserThread.h"
 #include "ProcessRegistry.h"
 #include "File.h"
+#include "ArchMemory.h"
+#include "Loader.h"
 
 size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2, size_t arg3, size_t arg4, size_t arg5)
 {
@@ -176,6 +178,8 @@ void Syscall::trace()
 
 size_t Syscall::fork()
 {
+  ArchMemory::writeable(((UserThread*)currentThread)->getProcess()->getLoader()->arch_memory_.page_map_level_4_, 0);
+
   UserProcess *new_process = new UserProcess(*((UserThread *)currentThread)->getProcess(), (UserThread*)currentThread);
 
   ProcessRegistry::instance()->createProcess(new_process);

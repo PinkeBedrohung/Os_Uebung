@@ -31,8 +31,9 @@ typedef struct
   uint64 ignored_2                 :4;
   uint64 page_ppn                  :28;
   uint64 reserved_1                :12; // must be 0
-  uint64 ignored_1                 :11;
-  uint64 execution_disabled        :1;
+  uint64 ignored_1                 :1;
+  uint64 access_ctr                :10; // Counts the number of process that share this entry
+  uint64 execution_disabled : 1;
 } __attribute__((__packed__)) PageMapLevel4Entry;
 
 static_assert(sizeof(PageMapLevel4Entry) == 8, "PageMapLevel4Entry is not 64 bit");
@@ -50,7 +51,8 @@ struct PageDirPointerTablePageDirEntry
   uint64 ignored_2                 :4;
   uint64 page_ppn                  :28;
   uint64 reserved_1                :12; // must be 0
-  uint64 ignored_1                 :11;
+  uint64 ignored_1                 :1;
+  uint64 access_ctr                :10; // Counts the number of process that share this entry
   uint64 execution_disabled        :1;
 } __attribute__((__packed__));
 
@@ -72,7 +74,8 @@ struct PageDirPointerTablePageEntry
   uint64 reserved_2                :17; // must be 0
   uint64 page_ppn                  :10;
   uint64 reserved_1                :12; // must be 0
-  uint64 ignored_1                 :11;
+  uint64 ignored_1                 :1;
+  uint64 access_ctr                :10; // Counts the number of process that share this entry
   uint64 execution_disabled        :1;
 } __attribute__((__packed__));
 
@@ -97,7 +100,8 @@ struct PageDirPageTableEntry
   uint64 ignored_2                 :4;
   uint64 page_ppn                  :28;
   uint64 reserved_1                :12; // must be 0
-  uint64 ignored_1                 :11;
+  uint64 ignored_1                 :1;
+  uint64 access_ctr                :10; // Counts the number of process that share this entry
   uint64 execution_disabled        :1;
 } __attribute__((__packed__));
 
@@ -119,7 +123,8 @@ struct PageDirPageEntry
   uint64 reserved_2                :8; // must be 0
   uint64 page_ppn                  :19;
   uint64 reserved_1                :12; // must be 0
-  uint64 ignored_1                 :11;
+  uint64 ignored_1                 :1;
+  uint64 access_ctr                :10; // Counts the number of process that share this entry
   uint64 execution_disabled        :1;
 } __attribute__((__packed__));
 
@@ -145,7 +150,8 @@ typedef struct
   uint64 ignored_2                 :3;
   uint64 page_ppn                  :28;
   uint64 reserved_1                :12; // must be 0
-  uint64 ignored_1                 :11;
+  uint64 ignored_1                 :1;
+  uint64 access_ctr                :10; // Counts the number of process that share this entry
   uint64 execution_disabled        :1;
 } __attribute__((__packed__)) PageTableEntry;
 

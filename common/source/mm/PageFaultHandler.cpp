@@ -7,6 +7,7 @@
 #include "Loader.h"
 #include "Syscall.h"
 #include "ArchThreads.h"
+#include "UserThread.h"
 extern "C" void arch_contextSwitch();
 
 const size_t PageFaultHandler::null_reference_check_border_ = PAGE_SIZE;
@@ -33,6 +34,12 @@ inline bool PageFaultHandler::checkPageFaultIsValid(size_t address, bool user,
   else if(present)
   {
     debug(PAGEFAULT, "You got a pagefault even though the address is mapped.\n");
+
+    if(currentThread->getThreadType() == Thread::USER_THREAD)
+    {
+      ((UserThread *)currentThread)->getProcess()->copyPages();
+      return true;
+    }
   }
   else
   {

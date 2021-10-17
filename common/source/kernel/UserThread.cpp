@@ -42,16 +42,14 @@ UserThread::UserThread(UserThread &thread, UserProcess* process) :
         Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD),
         fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber())
 {
+    (void)thread;
     loader_ = process->getLoader();
     ArchThreads::createUserRegisters(user_registers_, loader_->getEntryFunction(),
                                         (void*) (USER_BREAK - sizeof(pointer)),
                                         getKernelStackStartPointer());
     ArchThreads::setAddressSpace(this, loader_->arch_memory_);
-    
-    memcpy(kernel_stack_, thread.kernel_stack_, sizeof(kernel_stack_)/sizeof(uint32));
-    memcpy(kernel_registers_, thread.kernel_registers_, sizeof(ArchThreadRegisters));
-    memcpy(user_registers_, thread.user_registers_, sizeof(ArchThreadRegisters));
-    switch_to_userspace_ = thread.switch_to_userspace_;
+
+    switch_to_userspace_ = 1;
 }
 
 UserThread::~UserThread()

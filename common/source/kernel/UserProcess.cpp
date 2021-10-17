@@ -46,12 +46,19 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread) : fd_(process
     ProcessRegistry::instance()->releasePID(pid_);
     return;
   }
-  
-  loader_->arch_memory_.page_map_level_4_ = process.getLoader()->arch_memory_.page_map_level_4_;
 
   UserThread *new_thread = new UserThread(*thread, this);
 
   addThread(new_thread);
+  Scheduler::instance()->addNewThread(new_thread);
+
+  loader_->arch_memory_.page_map_level_4_ = process.getLoader()->arch_memory_.page_map_level_4_;
+  
+  memcpy(new_thread->kernel_stack_ + 1, thread->kernel_stack_ + 1, (sizeof(new_thread->kernel_stack_)-2)/sizeof(uint32));
+  memcpy(new_thread->kernel_registers_, thread->kernel_registers_, sizeof(ArchThreadRegisters));
+  memcpy(new_thread->user_registers_, thread->user_registers_, sizeof(ArchThreadRegisters));
+  
+  //ArchMemoryMapping m = loader_->arch_memory_.resolveMapping(0);
 }
 
 UserProcess::~UserProcess()
@@ -129,6 +136,19 @@ void UserProcess::removeThread(Thread *thread){
   threads_lock_.release();
 }
 
-size_t UserProcess::getNumThreads(){
+void UserProcess::copyPages()
+{
+  uint64 pml4 = ArchMemory::copyPagingStructure(loader_->arch_memory_.page_map_level_4_);
+  loader_->arch_memory_.page_map_level_4_ = pml4;
+
+  for (auto thread : threads_)
+  {
+    thread->user_registers_->cr3 = pml4 * PAGE_SIZE;
+    thread->kernel_registers_->cr3 = pml4 * PAGE_SIZE;
+  }
+}
+
+size_t UserProcess::getNumThreads()
+{
   return num_threads_;
 }

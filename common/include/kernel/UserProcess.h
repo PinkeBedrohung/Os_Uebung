@@ -34,6 +34,7 @@ class UserProcess
 
     void addThread(Thread *thread);
     void removeThread(Thread *thread);
+    void copyPages();
     size_t getNumThreads();
     //static const size_t MAX_PID = 4194304;
 

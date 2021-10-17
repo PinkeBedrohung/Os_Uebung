@@ -106,7 +106,7 @@ void ProcessRegistry::createProcess(UserProcess *process)
 {
   ustl::string path = process->getFilename();
   debug(PROCESS_REG, "created forked userprocess %s\n", path.c_str());
-  Scheduler::instance()->addNewThread(process->getThreads()->front());
+  //Scheduler::instance()->addNewThread(process->getThreads()->front());
   debug(PROCESS_REG, "added thread %s\n", path.c_str());
 }
 

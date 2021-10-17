@@ -91,13 +91,15 @@ public:
   const ArchMemoryMapping resolveMapping(uint64 vpage);
   static const ArchMemoryMapping resolveMapping(uint64 pml4,uint64 vpage);
 
-/**
- *
- * maps a virtual page to a physical page in kernel mapping
- *
- * @param virtual_page
- * @param physical_page
- */
+  static void writeable(uint64 pml4_ppn, uint64 writeable);
+  static uint64 copyPagingStructure(uint64 pml4_ppn);
+  /**
+   *
+   * maps a virtual page to a physical page in kernel mapping
+   *
+   * @param virtual_page
+   * @param physical_page
+   */
   static void mapKernelPage(uint64 virtual_page, uint64 physical_page);
 
 /**
