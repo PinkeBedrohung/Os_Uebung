@@ -11,7 +11,7 @@ private:
     uint32 terminal_number_;
 
 public:
-    UserThread(UserProcess *process);
+    UserThread(UserProcess *process, void* (*start_routine)(void*), void* args, bool is_first);
     ~UserThread();
     virtual void Run(); // not used
     UserProcess *getProcess();

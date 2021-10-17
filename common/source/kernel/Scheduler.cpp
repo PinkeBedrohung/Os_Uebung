@@ -14,6 +14,7 @@
 #include "ustring.h"
 #include "Lock.h"
 #include "UserThread.h"
+#include "UserProcess.h"
 
 ArchThreadRegisters *currentThreadRegisters;
 Thread *currentThread;

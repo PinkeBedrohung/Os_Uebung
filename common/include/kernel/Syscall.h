@@ -21,5 +21,8 @@ class Syscall
 
   static size_t createprocess(size_t path, size_t sleep);
   static void trace();
+
+  static size_t createThread(size_t thread, size_t attr, size_t start_routine, size_t arg);
+
 };
 

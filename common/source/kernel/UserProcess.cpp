@@ -17,10 +17,19 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
 {
   ProcessRegistry::instance()->processStart(); //should also be called if you fork a process
   
-  if (fd_ >= 0)
-      loader_ = new Loader(fd_);
+   if (fd_ >= 0)
+        loader_ = new Loader(fd_);
 
-  add_thread(new UserThread(this));
+    if (!loader_ || !loader_->loadExecutableAndInitProcess())
+    {
+        debug(USERPROCESS, "Error: loading %s failed!\n", filename.c_str());
+        loader_ = 0;
+        //kill();
+        return;
+    }
+  
+  
+  createThread(this, 0, 0, true);
 }
 
 UserProcess::~UserProcess()
@@ -96,4 +105,24 @@ void UserProcess::remove_thread(Thread *thread){
 
 size_t UserProcess::getNumThreads(){
   return num_threads_;
+}
+size_t UserProcess::createThread(UserProcess* uprocess,
+                                 void* (*routine)(void*), void* args, bool is_first)
+{
+  Thread* thread = new UserThread(uprocess, routine, args, is_first);
+  
+  threads_lock_.acquire();
+  if(thread != NULL)
+  {
+    //threads_[thread->getTID()]= thread;
+  
+    Scheduler::instance()->addNewThread(thread);
+    debug(USERTHREAD, "successfully created thread <%s tid %d>.\n", thread->getName(), (int) thread->getTID());
+    threads_lock_.release();
+    return 0;
+  }
+  else{
+    threads_lock_.release();
+    return -1U;
+  }
 }

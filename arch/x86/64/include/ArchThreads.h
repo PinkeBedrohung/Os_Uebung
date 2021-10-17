@@ -151,6 +151,9 @@ public:
    * @param thread
    */
   static void debugCheckNewThread(Thread* thread);
+  static unsigned long long rdtsc(void);
+
+  static size_t getRand(size_t from, size_t to);
 
 private:
   /**
