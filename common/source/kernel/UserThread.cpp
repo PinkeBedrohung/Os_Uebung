@@ -82,8 +82,7 @@ UserThread::~UserThread()
 
     debug(USERTHREAD, "~UserThread - TID %zu\n", getTID());
 
-    delete working_dir_;
-    working_dir_ = 0;
+    process_->remove_thread(this);
 
     if (process_->getNumThreads() == 0)
         delete process_;
