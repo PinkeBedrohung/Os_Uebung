@@ -29,7 +29,7 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
     }
   
   
-  createThread(this, 0, 0, true);
+  add_thread(new UserThread(this));
 }
 
 UserProcess::~UserProcess()

@@ -12,6 +12,7 @@ private:
 
 public:
     UserThread(UserProcess *process, void* (*start_routine)(void*), void* args, bool is_first);
+    UserThread(UserProcess* process);
     ~UserThread();
     virtual void Run(); // not used
     UserProcess *getProcess();

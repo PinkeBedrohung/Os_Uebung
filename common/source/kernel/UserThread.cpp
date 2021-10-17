@@ -11,6 +11,30 @@
 #include "offsets.h"
 #include "UserProcess.h"
 
+UserThread::UserThread(UserProcess* process) :
+        Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD)
+        , fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber()){
+    
+    loader_ = process_->getLoader();
+  
+
+    size_t page_for_stack = PageManager::instance()->allocPPN();
+    bool vpn_mapped = loader_->arch_memory_.mapPage(USER_BREAK / PAGE_SIZE - 1, page_for_stack, 1);
+    assert(vpn_mapped && "Virtual page for stack was already mapped - this should never happen");
+
+    ArchThreads::createUserRegisters(user_registers_, loader_->getEntryFunction(),
+                                    (void*) (USER_BREAK - sizeof(pointer)),
+                                    getKernelStackStartPointer());
+
+    ArchThreads::setAddressSpace(this, loader_->arch_memory_);
+
+    debug(USERTHREAD, "ctor: Done loading %s\n", name_.c_str());
+
+    if (main_console->getTerminal(terminal_number_))
+        setTerminal(main_console->getTerminal(terminal_number_));
+
+    switch_to_userspace_ = 1;
+}
 
 UserThread::UserThread(UserProcess* process, void* (*routine)(void*), void* args, bool is_first) :
         Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD)
