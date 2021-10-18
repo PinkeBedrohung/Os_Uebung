@@ -31,38 +31,39 @@ class ArchMemory
 {
 public:
     ArchMemory();
+    ArchMemory(ArchMemory &archmemory);
 
-/** 
- *
- * maps a virtual page to a physical page (pde and pte need to be set up first)
- *
- * @param physical_page_directory_page Real Page where the PDE to work on resides
- * @param virtual_page 
- * @param physical_page
- * @param user_access PTE User/Supervisor Flag, governing the binary Paging
- * Privilege Mechanism
- */
-  __attribute__((warn_unused_result)) bool mapPage(uint64 virtual_page, uint64 physical_page, uint64 user_access);
+    /**
+     *
+     * maps a virtual page to a physical page (pde and pte need to be set up first)
+     *
+     * @param physical_page_directory_page Real Page where the PDE to work on resides
+     * @param virtual_page
+     * @param physical_page
+     * @param user_access PTE User/Supervisor Flag, governing the binary Paging
+     * Privilege Mechanism
+     */
+    __attribute__((warn_unused_result)) bool mapPage(uint64 virtual_page, uint64 physical_page, uint64 user_access);
 
-/**
- * removes the mapping to a virtual_page by marking its PTE Entry as non valid
- *
- * @param physical_page_directory_page Real Page where the PDE to work on resides
- * @param virtual_page which will be invalidated
- */
-  bool unmapPage(uint64 virtual_page);
+    /**
+     * removes the mapping to a virtual_page by marking its PTE Entry as non valid
+     *
+     * @param physical_page_directory_page Real Page where the PDE to work on resides
+     * @param virtual_page which will be invalidated
+     */
+    bool unmapPage(uint64 virtual_page);
 
-  ~ArchMemory();
+    ~ArchMemory();
 
-/**
- * Takes a Physical Page Number in Real Memory and returns a virtual address than
- * can be used to access given page
- * @param ppn Physical Page Number
- * @param page_size Optional, defaults to 4k pages, but you ned to set it to
- * 1024*4096 if you have a 4m page number
- * @return Virtual Address above 3GB pointing to the start of a memory segment that
- * is mapped to the physical page given
- */
+    /**
+     * Takes a Physical Page Number in Real Memory and returns a virtual address than
+     * can be used to access given page
+     * @param ppn Physical Page Number
+     * @param page_size Optional, defaults to 4k pages, but you ned to set it to
+     * 1024*4096 if you have a 4m page number
+     * @return Virtual Address above 3GB pointing to the start of a memory segment that
+     * is mapped to the physical page given
+     */
     static pointer getIdentAddressOfPPN(uint64 ppn, uint32 page_size=PAGE_SIZE)
     {
       return 0xFFFFF00000000000ULL | (ppn * page_size);
@@ -93,6 +94,7 @@ public:
 
   static void writeable(uint64 pml4_ppn, uint64 writeable);
   static uint64 copyPagingStructure(uint64 pml4_ppn);
+  static void printMemoryMapping(ArchMemoryMapping* mapping);
   /**
    *
    * maps a virtual page to a physical page in kernel mapping

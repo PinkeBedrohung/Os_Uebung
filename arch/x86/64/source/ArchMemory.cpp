@@ -21,6 +21,12 @@ ArchMemory::ArchMemory()
   memset(new_pml4, 0, PAGE_SIZE / 2); // should be zero, this is just for safety
 }
 
+ArchMemory::ArchMemory(ArchMemory &archmemory)
+{
+  page_map_level_4_ = archmemory.page_map_level_4_;
+}
+
+
 template<typename T>
 bool ArchMemory::checkAndRemove(pointer map_ptr, uint64 index)
 {
@@ -328,12 +334,13 @@ uint64 ArchMemory::copyPagingStructure(uint64 pml4_ppn)
   {
     if(pml4[pml4i].present)
     {
+      /*
       assert(pml4[pml4i].access_ctr > 0);
       pml4[pml4i].access_ctr--;
 
       if(pml4[pml4i].access_ctr == 0)
         pml4[pml4i].writeable = 1;
-
+      */
       memcpy(&new_pml4[pml4i], &pml4[pml4i], sizeof(PageMapLevel4Entry));
       new_pml4[pml4i].writeable = 1;
       new_pml4[pml4i].access_ctr = 0;
@@ -346,12 +353,13 @@ uint64 ArchMemory::copyPagingStructure(uint64 pml4_ppn)
       {
         if(pdpt[pdpti].pd.present)
         {
+          /*
           assert(pdpt[pdpti].pd.access_ctr > 0);
           pdpt[pdpti].pd.access_ctr--;
 
           if(pdpt[pdpti].pd.access_ctr == 0)
             pdpt[pdpti].pd.writeable = 1;
-
+          */
           memcpy(&new_pdpt[pdpti], &pdpt[pdpti], sizeof(PageDirPointerTableEntry));
           new_pdpt[pdpti].pd.writeable = 1;
           new_pdpt[pdpti].pd.access_ctr = 0;
@@ -364,12 +372,13 @@ uint64 ArchMemory::copyPagingStructure(uint64 pml4_ppn)
           {
             if(pd[pdi].pt.present)
             {
+              /*
               assert(pd[pdi].pt.access_ctr > 0);
               pd[pdi].pt.access_ctr--;
 
               if(pd[pdi].pt.access_ctr == 0)
                 pd[pdi].pt.writeable = 1;
-
+              */
               memcpy(&new_pd[pdi], &pd[pdi], sizeof(PageDirEntry));
               new_pd[pdi].pt.writeable = 1;
               new_pd[pdi].pt.access_ctr = 0;
@@ -382,12 +391,13 @@ uint64 ArchMemory::copyPagingStructure(uint64 pml4_ppn)
               {
                 if(pt[pti].present)
                 {
+                  /*
                   assert(pt[pti].access_ctr > 0);
                   pt[pti].access_ctr--;
 
                   if(pt[pti].access_ctr == 0)
                     pt[pti].writeable = 1;
-
+                  */
                   memcpy(&new_pt[pti], &pt[pti], sizeof(PageTableEntry));
                   new_pt[pti].writeable = 1;
                   new_pt[pti].access_ctr = 0;
@@ -403,6 +413,24 @@ uint64 ArchMemory::copyPagingStructure(uint64 pml4_ppn)
     }
   }
   return new_pml4_ppn;
+}
+
+void ArchMemory::printMemoryMapping(ArchMemoryMapping* mapping)
+{
+  debug(A_MEMORY, "PML4 Entry: %p\n",mapping->pml4);
+  debug(A_MEMORY, "PDPT Entry: %p\n",mapping->pdpt);
+  debug(A_MEMORY, "PD Entry: %p\n",mapping->pd);
+  debug(A_MEMORY, "PT Entry: %p\n",mapping->pt);
+
+  debug(A_MEMORY, "PML4 PPN: %zu\n",mapping->pml4_ppn);
+  debug(A_MEMORY, "PDPT PPN: %zu\n",mapping->pdpt_ppn);
+  debug(A_MEMORY, "PD PPN: %zu\n",mapping->pd_ppn);
+  debug(A_MEMORY, "PT PPN: %zu\n",mapping->pt_ppn);
+
+  debug(A_MEMORY, "PML4 Index: %zu\n",mapping->pml4i);
+  debug(A_MEMORY, "PDPT Index: %zu\n",mapping->pdpti);
+  debug(A_MEMORY, "PD Index: %zu\n",mapping->pdi);
+  debug(A_MEMORY, "PT Index: %zu\n",mapping->pti);
 }
 
 size_t ArchMemory::get_PPN_Of_VPN_In_KernelMapping(size_t virtual_page, size_t *physical_page,

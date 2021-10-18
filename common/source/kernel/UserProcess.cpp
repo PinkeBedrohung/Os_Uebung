@@ -31,34 +31,35 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
   addThread(new UserThread(this));
 }
 
-UserProcess::UserProcess(UserProcess &process, UserThread *thread) : fd_(process.getFd()), pid_(ProcessRegistry::instance()->getNewPID()),
-         filename_(process.getFilename()), loader_(process.getLoader()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
+UserProcess::UserProcess(UserProcess &process, UserThread *thread) : fd_(VfsSyscall::open(process.getFilename().c_str(), O_RDONLY)), pid_(ProcessRegistry::instance()->getNewPID()),
+         filename_(process.getFilename()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
          terminal_number_(process.getTerminalNumber()), threads_lock_("UserProcess::threads_lock_"), num_threads_(0)
 {
   ProcessRegistry::instance()->processStart();
 
-  loader_ = new Loader(fd_);
-  
-  if (!loader_ || !loader_->loadExecutableAndInitProcess())
-  {
-    debug(USERPROCESS, "Error: loading %s failed!\n", filename_.c_str());
-    ProcessRegistry::instance()->processExit();
-    ProcessRegistry::instance()->releasePID(pid_);
-    return;
-  }
+  loader_ = new Loader(*process.getLoader(), fd_);
+
+  debug(USERPROCESS, "Loader copy done\n");
 
   UserThread *new_thread = new UserThread(*thread, this);
 
+  if(currentThread == new_thread)
+    return;
+
+  copyPages();
+  
+  ArchThreads::setAddressSpace(new_thread, loader_->arch_memory_);
+  //ArchThreads::atomic_set(new_thread->kernel_registers_->cr3, thread->kernel_registers_->cr3);
+  ArchThreads::atomic_set(new_thread->user_registers_->rsp0, (size_t)new_thread->getKernelStackStartPointer());
+  ArchThreads::atomic_set(new_thread->user_registers_->rax, 0);
+  ArchThreads::printThreadRegisters(thread);
+  ArchThreads::printThreadRegisters(new_thread);
+
+  //ArchMemoryMapping m = thread->loader_->arch_memory_.resolveMapping(new_thread->kernel_registers_->rsp / PAGE_SIZE);
+  //ArchMemory::printMemoryMapping(&m);
   addThread(new_thread);
   Scheduler::instance()->addNewThread(new_thread);
-
-  loader_->arch_memory_.page_map_level_4_ = process.getLoader()->arch_memory_.page_map_level_4_;
   
-  memcpy(new_thread->kernel_stack_ + 1, thread->kernel_stack_ + 1, (sizeof(new_thread->kernel_stack_)-2)/sizeof(uint32));
-  memcpy(new_thread->kernel_registers_, thread->kernel_registers_, sizeof(ArchThreadRegisters));
-  memcpy(new_thread->user_registers_, thread->user_registers_, sizeof(ArchThreadRegisters));
-  
-  //ArchMemoryMapping m = loader_->arch_memory_.resolveMapping(0);
 }
 
 UserProcess::~UserProcess()
@@ -136,16 +137,13 @@ void UserProcess::removeThread(Thread *thread){
   threads_lock_.release();
 }
 
-void UserProcess::copyPages()
+uint64 UserProcess::copyPages()
 {
   uint64 pml4 = ArchMemory::copyPagingStructure(loader_->arch_memory_.page_map_level_4_);
+  debug(USERPROCESS, "pml4: %zu or_pml4: %zu\n", pml4, loader_->arch_memory_.page_map_level_4_);
   loader_->arch_memory_.page_map_level_4_ = pml4;
 
-  for (auto thread : threads_)
-  {
-    thread->user_registers_->cr3 = pml4 * PAGE_SIZE;
-    thread->kernel_registers_->cr3 = pml4 * PAGE_SIZE;
-  }
+  return pml4;
 }
 
 size_t UserProcess::getNumThreads()

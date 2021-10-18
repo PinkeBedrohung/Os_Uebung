@@ -34,12 +34,13 @@ inline bool PageFaultHandler::checkPageFaultIsValid(size_t address, bool user,
   else if(present)
   {
     debug(PAGEFAULT, "You got a pagefault even though the address is mapped.\n");
-
+    /*
     if(currentThread->getThreadType() == Thread::USER_THREAD)
     {
       ((UserThread *)currentThread)->getProcess()->copyPages();
       return true;
     }
+    */
   }
   else
   {

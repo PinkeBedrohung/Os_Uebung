@@ -13,10 +13,10 @@ private:
     uint32 terminal_number_;
 
 public:
-    UserThread(UserProcess *process, bool forked = false);
+    UserThread(UserProcess *process);
     UserThread(UserThread &thread, UserProcess* process = NULL);
     ~UserThread();
     virtual void Run(); // not used
     UserProcess *getProcess();
+    void copyRegisters(UserThread *thread);
 };
-

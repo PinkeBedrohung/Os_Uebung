@@ -1,13 +1,15 @@
 #include "unistd.h"
+#include "stdio.h"
 
 int main()
 {
-    //int var = 0;
+    int var = 0;
     //(void)var;
     fork();
+    
+    var++;
+    printf("var: %d", var);
     /*
-    var = 1;
-    (void)var;
     if (var == 1)
     {
         var++;

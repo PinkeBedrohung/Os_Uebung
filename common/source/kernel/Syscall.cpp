@@ -178,10 +178,15 @@ void Syscall::trace()
 
 size_t Syscall::fork()
 {
-  ArchMemory::writeable(((UserThread*)currentThread)->getProcess()->getLoader()->arch_memory_.page_map_level_4_, 0);
+  //ArchMemory::writeable(((UserThread*)currentThread)->getProcess()->getLoader()->arch_memory_.page_map_level_4_, 0);
 
   UserProcess *new_process = new UserProcess(*((UserThread *)currentThread)->getProcess(), (UserThread*)currentThread);
 
+  if (currentThread == new_process->getThreads()->front())
+    return ((UserThread *)currentThread)->getProcess()->getPID();
+    
   ProcessRegistry::instance()->createProcess(new_process);
-  return currentThread->getTID();
+  //((UserThread*)new_process->getThreads()->front())->copyRegisters((UserThread*)currentThread);
+  //Scheduler::instance()->addNewThread(new_process->getThreads()->front());
+  return ((UserThread *)currentThread)->getProcess()->getPID();
 }
