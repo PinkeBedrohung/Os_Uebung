@@ -272,7 +272,7 @@ void ArchMemory::writeable(uint64 pml4_ppn, uint64 writeable)
     if(pml4[pml4i].present)
     {
       mapped_pages++;
-      //debug(A_MEMORY, "PML4i %zu - PML4 Entry: %p Present bit: %zu\n", pml4i, &pml4[pml4i], pml4[pml4i].present);
+      debug(A_MEMORY, "PML4i %zu - PML4 Entry: %p Present bit: %zu\n", pml4i, &pml4[pml4i], pml4[pml4i].present);
       pml4[pml4i].writeable = writeable;
       pml4[pml4i].access_ctr++;
 
@@ -283,7 +283,7 @@ void ArchMemory::writeable(uint64 pml4_ppn, uint64 writeable)
         if(pdpt[pdpti].pd.present)
         {
           mapped_pages++;
-          //debug(A_MEMORY, "\tPDPTi %zu - PDPT Entry: %p Present bit: %zu\n", pdpti, &pdpt[pdpti], pdpt[pdpti].pd.present);
+          debug(A_MEMORY, "\tPDPTi %zu - PDPT Entry: %p Present bit: %zu\n", pdpti, &pdpt[pdpti], pdpt[pdpti].pd.present);
           pdpt[pdpti].pd.writeable = writeable;
           pdpt[pdpti].pd.access_ctr++;
 
@@ -293,7 +293,7 @@ void ArchMemory::writeable(uint64 pml4_ppn, uint64 writeable)
             if(pd[pdi].pt.present)
             {
               mapped_pages++;
-              //debug(A_MEMORY, "\t\tPDi %zu - PD Entry: %p Present bit: %zu\n", pdi, &pd[pdi], pd[pdi].pt.present);
+              debug(A_MEMORY, "\t\tPDi %zu - PD Entry: %p Present bit: %zu\n", pdi, &pd[pdi], pd[pdi].pt.present);
               pd[pdi].pt.writeable = writeable;
               pd[pdi].pt.access_ctr++;
 
@@ -303,7 +303,7 @@ void ArchMemory::writeable(uint64 pml4_ppn, uint64 writeable)
                 if(pt[pti].present)
                 {
                   mapped_pages++;
-                  //debug(A_MEMORY, "\t\t\tPTi %zu - PT Entry: %p Present bit: %zu\n", pti, &pt[pti], pt[pti].present);
+                  debug(A_MEMORY, "\t\t\tPTi %zu - PT Entry: %p Present bit: %zu\n", pti, &pt[pti], pt[pti].present);
                   pt[pti].writeable = writeable;
                   pt[pti].access_ctr++;
                 }

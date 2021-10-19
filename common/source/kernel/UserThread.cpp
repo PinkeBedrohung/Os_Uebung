@@ -33,6 +33,7 @@ UserThread::UserThread(UserProcess* process) :
         setTerminal(main_console->getTerminal(terminal_number_));
 
     switch_to_userspace_ = 1;
+    ArchThreads::printThreadRegisters(this);
 }
 
 UserThread::UserThread(UserThread &thread, UserProcess* process) : 
@@ -47,12 +48,9 @@ UserThread::UserThread(UserThread &thread, UserProcess* process) :
                                         (void*) (USER_BREAK - sizeof(pointer)),
                                         getKernelStackStartPointer());   
     
-    //user_registers_ = new ArchThreadRegisters;
 
     if (main_console->getTerminal(terminal_number_))
         setTerminal(main_console->getTerminal(terminal_number_));
-
-    setState(thread.getState());
     
     ArchThreads::setAddressSpace(this, loader_->arch_memory_);
     copyRegisters(&thread);
@@ -85,6 +83,6 @@ UserProcess *UserThread::getProcess(){
 void UserThread::copyRegisters(UserThread* thread)
 {
     memcpy(user_registers_, thread->user_registers_, sizeof(ArchThreadRegisters));
-    memcpy(&kernel_stack_[1], &thread->kernel_stack_[1], (sizeof(kernel_stack_)-2)/sizeof(uint32));
+    //memcpy(&kernel_stack_[1], &thread->kernel_stack_[1], (sizeof(kernel_stack_)-2)/sizeof(uint32));
     //memcpy(kernel_registers_, thread->kernel_registers_, sizeof(ArchThreadRegisters));
 }

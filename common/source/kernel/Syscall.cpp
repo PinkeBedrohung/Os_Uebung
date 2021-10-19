@@ -182,11 +182,8 @@ size_t Syscall::fork()
 
   UserProcess *new_process = new UserProcess(*((UserThread *)currentThread)->getProcess(), (UserThread*)currentThread);
 
-  if (currentThread == new_process->getThreads()->front())
-    return ((UserThread *)currentThread)->getProcess()->getPID();
-    
   ProcessRegistry::instance()->createProcess(new_process);
   //((UserThread*)new_process->getThreads()->front())->copyRegisters((UserThread*)currentThread);
   //Scheduler::instance()->addNewThread(new_process->getThreads()->front());
-  return ((UserThread *)currentThread)->getProcess()->getPID();
+  return new_process->getPID();
 }

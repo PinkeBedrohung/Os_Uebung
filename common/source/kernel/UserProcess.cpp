@@ -43,22 +43,20 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread) : fd_(VfsSysc
 
   UserThread *new_thread = new UserThread(*thread, this);
 
-  if(currentThread == new_thread)
-    return;
-
   copyPages();
   
   ArchThreads::setAddressSpace(new_thread, loader_->arch_memory_);
   //ArchThreads::atomic_set(new_thread->kernel_registers_->cr3, thread->kernel_registers_->cr3);
-  ArchThreads::atomic_set(new_thread->user_registers_->rsp0, (size_t)new_thread->getKernelStackStartPointer());
-  ArchThreads::atomic_set(new_thread->user_registers_->rax, 0);
+  new_thread->user_registers_->rsp0 = (size_t)new_thread->getKernelStackStartPointer();
+  new_thread->user_registers_->rax = 0;
+
   ArchThreads::printThreadRegisters(thread);
   ArchThreads::printThreadRegisters(new_thread);
 
   //ArchMemoryMapping m = thread->loader_->arch_memory_.resolveMapping(new_thread->kernel_registers_->rsp / PAGE_SIZE);
   //ArchMemory::printMemoryMapping(&m);
   addThread(new_thread);
-  Scheduler::instance()->addNewThread(new_thread);
+  //Scheduler::instance()->addNewThread(new_thread);
   
 }
 
@@ -140,8 +138,12 @@ void UserProcess::removeThread(Thread *thread){
 uint64 UserProcess::copyPages()
 {
   uint64 pml4 = ArchMemory::copyPagingStructure(loader_->arch_memory_.page_map_level_4_);
+
+  //ArchMemory::writeable(loader_->arch_memory_.page_map_level_4_, 1);
+
   debug(USERPROCESS, "pml4: %zu or_pml4: %zu\n", pml4, loader_->arch_memory_.page_map_level_4_);
   loader_->arch_memory_.page_map_level_4_ = pml4;
+  //ArchMemory::writeable(loader_->arch_memory_.page_map_level_4_, 1);
 
   return pml4;
 }
