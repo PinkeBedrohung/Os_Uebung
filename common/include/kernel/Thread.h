@@ -7,7 +7,7 @@
 
 enum ThreadState
 {
-  Running, Sleeping, ToBeDestroyed
+  Running, Sleeping, ToBeDestroyed, USleep
 };
 
 enum SystemState { BOOTING, RUNNING, KPANIC };

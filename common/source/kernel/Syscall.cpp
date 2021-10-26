@@ -222,10 +222,14 @@ size_t Syscall::clock()
 
 size_t Syscall::sleep(unsigned int seconds)
 {
-  unsigned long long additional_time = seconds*(Scheduler::instance()->average_rdtsc_/(54925439/1000));
-  unsigned long long expected_time = ArchThreads::rdtsc() + additional_time; //start rdtsc + additional time
+  unsigned long long current_rdtsc = ArchThreads::rdtsc();
+
+  //debug(SYSCALL,"rdtsc time: %lld\n", current_rdtsc);
+  unsigned long long additional_time = (seconds*1000)*(Scheduler::instance()->average_rdtsc_/(54925439/1000000));
+  unsigned long long expected_time = current_rdtsc + additional_time; //start rdtsc + additional time
   currentThread->time_to_sleep_ = expected_time;
-  currentThread->setState(Sleeping);
+  //debug(SYSCALL,"expected time: %lld\n", expected_time);
+  currentThread->setState(USleep);
   Scheduler::instance()->yield();
   return 0;
 }
