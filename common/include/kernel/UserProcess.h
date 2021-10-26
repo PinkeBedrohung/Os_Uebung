@@ -3,6 +3,7 @@
 #include "Thread.h"
 #include "ulist.h"
 #include "Mutex.h"
+#include "umap.h"
 
 class UserProcess
 {
@@ -34,7 +35,9 @@ class UserProcess
     size_t createUserThread(size_t* tid, void* (*routine)(void*), void* args, void* entry_function);
 
     size_t created_threads_;
+    ustl::map<size_t, void*> retvals_;
 
+    void mapRetVals(size_t tid, void* retval);
   private:
     int32 fd_;
     uint32 pid_;

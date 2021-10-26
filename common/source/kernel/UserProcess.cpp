@@ -117,3 +117,14 @@ size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void*
   Scheduler::instance()->addNewThread(thread);
   return 0;
 }
+
+void UserProcess::mapRetVals(size_t tid, void* retval)
+{
+  for (auto it = threads_.begin(); it != threads_.end(); it++)
+  {
+    if(((UserThread*)it)->getTID() == tid)
+    {
+      retvals_.insert(ustl::make_pair(tid, retval));
+    }
+  }
+}

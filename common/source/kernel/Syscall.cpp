@@ -199,13 +199,15 @@ size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, s
   }
 }
 
-size_t Syscall::exitThread(size_t retval)
+void Syscall::exitThread(size_t retval)
 {
   // TODO: Add retval to process for join
-  if (retval) {}
+  if (retval) {
+    UserProcess* process = ((UserThread*)currentThread)->getProcess();
+    process->mapRetVals(currentThread->getTID(), (void*) retval);
+  }
   // TODO: End
   currentThread->kill();
-  return 0;
 }
 
 size_t Syscall::clock()
