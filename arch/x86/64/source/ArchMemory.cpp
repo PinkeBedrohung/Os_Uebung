@@ -257,7 +257,7 @@ const ArchMemoryMapping ArchMemory::resolveMapping(uint64 pml4, uint64 vpage)
   return m;
 }
 
-void ArchMemory::writeable(uint64 pml4_ppn, uint64 writeable)
+void ArchMemory::writeable(uint64 pml4_ppn, int8 writeable, EntryCounter entr_ctr, uint64 entr_ctr_value)
 {
   PageMapLevel4Entry *pml4 = (PageMapLevel4Entry*)ArchMemory::getIdentAddressOfPPN(pml4_ppn);
   PageDirPointerTableEntry *pdpt;
@@ -265,16 +265,20 @@ void ArchMemory::writeable(uint64 pml4_ppn, uint64 writeable)
   PageTableEntry *pt;
   size_t mapped_pages = 1;
 
-  writeable = writeable > 0 ? 1 : 0;
+  int8 addend = entr_ctr == Increment ? entr_ctr_value : entr_ctr == Decrement ? -entr_ctr_value : 0;
+
+  writeable = writeable > 0 ? 1 : writeable < 0 ? -1 : 0;
 
   for (size_t pml4i = 0; pml4i < PAGE_MAP_LEVEL_4_ENTRIES / 2; pml4i++)
   {
     if(pml4[pml4i].present)
     {
       mapped_pages++;
-      debug(A_MEMORY, "PML4i %zu - PML4 Entry: %p Present bit: %zu\n", pml4i, &pml4[pml4i], pml4[pml4i].present);
-      pml4[pml4i].writeable = writeable;
-      pml4[pml4i].access_ctr++;
+      //debug(A_MEMORY, "PML4i %zu - PML4 Entry: %p Present bit: %zu\n", pml4i, &pml4[pml4i], pml4[pml4i].present);
+      assert(pml4[pml4i].access_ctr >= 0);
+      if(writeable != -1)
+        pml4[pml4i].writeable = writeable;
+      pml4[pml4i].access_ctr += addend;
 
       pdpt = (PageDirPointerTableEntry *)getIdentAddressOfPPN(pml4[pml4i].page_ppn);
 
@@ -283,9 +287,11 @@ void ArchMemory::writeable(uint64 pml4_ppn, uint64 writeable)
         if(pdpt[pdpti].pd.present)
         {
           mapped_pages++;
-          debug(A_MEMORY, "\tPDPTi %zu - PDPT Entry: %p Present bit: %zu\n", pdpti, &pdpt[pdpti], pdpt[pdpti].pd.present);
-          pdpt[pdpti].pd.writeable = writeable;
-          pdpt[pdpti].pd.access_ctr++;
+          //debug(A_MEMORY, "\tPDPTi %zu - PDPT Entry: %p Present bit: %zu\n", pdpti, &pdpt[pdpti], pdpt[pdpti].pd.present);
+          assert(pdpt[pdpti].pd.access_ctr >= 0);
+          if(writeable != -1)
+            pdpt[pdpti].pd.writeable = writeable;
+          pdpt[pdpti].pd.access_ctr += addend;
 
           pd = (PageDirEntry *)ArchMemory::getIdentAddressOfPPN(pdpt[pdpti].pd.page_ppn);
           for (size_t pdi = 0; pdi < PAGE_DIR_ENTRIES; pdi++)
@@ -293,9 +299,11 @@ void ArchMemory::writeable(uint64 pml4_ppn, uint64 writeable)
             if(pd[pdi].pt.present)
             {
               mapped_pages++;
-              debug(A_MEMORY, "\t\tPDi %zu - PD Entry: %p Present bit: %zu\n", pdi, &pd[pdi], pd[pdi].pt.present);
-              pd[pdi].pt.writeable = writeable;
-              pd[pdi].pt.access_ctr++;
+              //debug(A_MEMORY, "\t\tPDi %zu - PD Entry: %p Present bit: %zu\n", pdi, &pd[pdi], pd[pdi].pt.present);
+              assert(pd[pdi].pt.access_ctr >= 0);
+              if(writeable != -1)
+                pd[pdi].pt.writeable = writeable;
+              pd[pdi].pt.access_ctr += addend;
 
               pt = (PageTableEntry *)ArchMemory::getIdentAddressOfPPN(pd[pdi].pt.page_ppn);
               for (size_t pti = 0; pti < PAGE_TABLE_ENTRIES; pti++)
@@ -303,9 +311,11 @@ void ArchMemory::writeable(uint64 pml4_ppn, uint64 writeable)
                 if(pt[pti].present)
                 {
                   mapped_pages++;
-                  debug(A_MEMORY, "\t\t\tPTi %zu - PT Entry: %p Present bit: %zu\n", pti, &pt[pti], pt[pti].present);
-                  pt[pti].writeable = writeable;
-                  pt[pti].access_ctr++;
+                  //debug(A_MEMORY, "\t\t\tPTi %zu - PT Entry: %p Present bit: %zu\n", pti, &pt[pti], pt[pti].present);
+                  assert(pt[pti].access_ctr >= 0);
+                  if(writeable != -1)
+                    pt[pti].writeable = writeable;
+                  pt[pti].access_ctr += addend;
                 }
               }
             }
@@ -314,7 +324,7 @@ void ArchMemory::writeable(uint64 pml4_ppn, uint64 writeable)
       }
     }
   }
-  debug(A_MEMORY, "Set Writeable bit to %zu on %zu pages\n", writeable, mapped_pages);
+  debug(A_MEMORY, "Set Writeable bit to %d on %zu pages\n", writeable, mapped_pages);
 }
 
 uint64 ArchMemory::copyPagingStructure(uint64 pml4_ppn)
@@ -420,6 +430,7 @@ uint64 ArchMemory::copyPagingStructure(uint64 pml4_ppn)
       }
     }
   }
+  
   ArchMemory::setKernelPagingPML4(pml4_ppn, new_pml4_ppn);
   return new_pml4_ppn;
 }

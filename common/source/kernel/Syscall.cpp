@@ -178,12 +178,24 @@ void Syscall::trace()
 
 size_t Syscall::fork()
 {
-  ArchMemory::writeable(((UserThread*)currentThread)->getProcess()->getLoader()->arch_memory_.page_map_level_4_, 0);
+  if (!((UserThread*)currentThread)->getProcess()->cow_holding_ps)
+  {
+    ((UserThread *)currentThread)->getProcess()->cow_holding_ps = new ustl::list<UserProcess *>();
+  }
+  
+  if(!((UserThread*)currentThread)->getProcess()->fork_lock_)
+  {
+    ((UserThread *)currentThread)->getProcess()->fork_lock_ = new Mutex("UserProcess::cow_lock_");
+  }  
+    
+
+  MutexLock lock(*((UserThread *)currentThread)->getProcess()->fork_lock_);
+  ((UserThread *)currentThread)->getProcess()->cow_holding_ps->push_back(((UserThread *)currentThread)->getProcess());
+  
+  ArchMemory::writeable(((UserThread *)currentThread)->getProcess()->getLoader()->arch_memory_.page_map_level_4_, 0);
 
   UserProcess *new_process = new UserProcess(*((UserThread *)currentThread)->getProcess(), (UserThread*)currentThread);
-
   ProcessRegistry::instance()->createProcess(new_process);
-  //((UserThread*)new_process->getThreads()->front())->copyRegisters((UserThread*)currentThread);
-  //Scheduler::instance()->addNewThread(new_process->getThreads()->front());
+
   return new_process->getPID();
 }

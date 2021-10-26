@@ -12,8 +12,9 @@
 #include "UserThread.h"
 
 UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 pid, uint32 terminal_number) : 
+        //holding_cow_(false),
         fd_(VfsSyscall::open(filename, O_RDONLY)), pid_(pid), filename_(filename), fs_info_(fs_info), 
-        terminal_number_(terminal_number), threads_lock_("UserProcess::threads_lock_"), num_threads_(0)
+        terminal_number_(terminal_number), parent_process_(0), child_processes_(), threads_lock_("UserProcess::threads_lock_"), num_threads_(0)
 {
   ProcessRegistry::instance()->processStart(); //should also be called if you fork a process
   
@@ -31,34 +32,81 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
   addThread(new UserThread(this));
 }
 
-UserProcess::UserProcess(UserProcess &process, UserThread *thread) : fd_(process.getFd())//fd_(VfsSyscall::open(process.getFilename().c_str(), O_RDONLY))
+UserProcess::UserProcess(UserProcess &process, UserThread *thread) : //holding_cow_(true),
+         fd_(process.getFd())//fd_(VfsSyscall::open(process.getFilename().c_str(), O_RDONLY))
         , pid_(ProcessRegistry::instance()->getNewPID()),
          filename_(process.getFilename()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
-         terminal_number_(process.getTerminalNumber()), threads_lock_("UserProcess::threads_lock_"), num_threads_(0)
+         terminal_number_(process.getTerminalNumber()),parent_process_(&process), child_processes_(), threads_lock_("UserProcess::threads_lock_"), num_threads_(0)
 {
   ProcessRegistry::instance()->processStart();
+
   loader_ = new Loader(*process.getLoader(), fd_);
 
   debug(USERPROCESS, "Loader copy done\n");
 
   UserThread *new_thread = new UserThread(*thread, this);
-  // copyPages();
-
-  //ArchThreads::setAddressSpace(new_thread, loader_->arch_memory_);
+  
   new_thread->user_registers_->rsp0 = (size_t)new_thread->getKernelStackStartPointer();
   new_thread->user_registers_->rax = 0;
 
-  ArchThreads::printThreadRegisters(thread);
-  ArchThreads::printThreadRegisters(new_thread);
+  //ArchThreads::printThreadRegisters(thread);
+  //ArchThreads::printThreadRegisters(new_thread);
+  cow_holding_ps = process.cow_holding_ps;
+  cow_holding_ps->push_back(this);
+  process.child_processes_.push_back(this);
+  fork_lock_ = parent_process_->fork_lock_;
 
-  //ArchMemoryMapping m = thread->loader_->arch_memory_.resolveMapping(new_thread->kernel_registers_->rsp / PAGE_SIZE);
-  //ArchMemory::printMemoryMapping(&m);
   addThread(new_thread);
 }
 
 UserProcess::~UserProcess()
 {
   debug(USERPROCESS, "~UserProcess - PID %zu\n", getPID());
+
+  bool last_fork_lock_holder = false;
+  if (fork_lock_)
+  {
+    fork_lock_->acquire();
+    if(cow_holding_ps && cow_holding_ps->size() == 2)
+    {
+      ArchMemory::writeable(loader_->arch_memory_.page_map_level_4_, 1, Decrement);
+
+      last_fork_lock_holder = true;
+      cow_holding_ps->remove(this);
+      cow_holding_ps->front()->cow_holding_ps = nullptr;
+      cow_holding_ps->front()->fork_lock_ = nullptr;
+      delete cow_holding_ps;
+      cow_holding_ps = nullptr;
+      
+    }
+    else if(cow_holding_ps && cow_holding_ps->size() > 2)
+    {
+      ArchMemory::writeable(loader_->arch_memory_.page_map_level_4_, -1, Decrement);
+      cow_holding_ps->remove(this);
+    }
+    
+    fork_lock_->release();
+  }
+
+  if(last_fork_lock_holder && !fork_lock_->heldBy())
+    delete fork_lock_;
+
+  fork_lock_ = nullptr;
+
+  // Remove the current process from the child processes list of the parent
+  for (auto &parents_child_process : parent_process_->child_processes_)
+  {
+    if (parents_child_process == this)
+    {
+      parent_process_->child_processes_.remove(this);
+    }
+  }
+  
+  // Set the parent of the children to the parent process
+  for (auto &child_process : child_processes_)
+  {
+    child_process->parent_process_ = parent_process_;
+  }
 
   delete loader_;
   loader_ = 0;
@@ -136,30 +184,30 @@ uint64 UserProcess::copyPages()
   //ArchMemoryMapping d = currentThread->loader_->arch_memory_.resolveMapping(currentThread->kernel_registers_->rsp / PAGE_SIZE);
   //debug(USERPROCESS, "accesscounter: %zu\n", d.pml4->access_ctr);
   uint64 pml4 = ArchMemory::copyPagingStructure(loader_->arch_memory_.page_map_level_4_);
-  
-  debug(USERPROCESS, "pml4: %zu or_pml4: %zu\n", pml4, loader_->arch_memory_.page_map_level_4_);
+  //debug(USERPROCESS, "pml4: %zu or_pml4: %zu\n", pml4, loader_->arch_memory_.page_map_level_4_);
   //ArchMemoryMapping m = currentThread->loader_->arch_memory_.resolveMapping(currentThread->kernel_registers_->rsp / PAGE_SIZE);
   //debug(USERPROCESS, "accesscounter: %zu\n", m.pml4->access_ctr);
-  ArchThreads::printThreadRegisters(currentThread);
+  //ArchThreads::printThreadRegisters(currentThread);
   loader_->arch_memory_.page_map_level_4_ = pml4;
 
-  /*Loader* loader = new Loader(*loader_, fd_);
-  loader->loadExecutableAndInitProcess();
+  //ArchMemoryMapping m = currentThread->loader_->arch_memory_.resolveMapping(currentThread->kernel_registers_->rsp / PAGE_SIZE);
+  //debug(USERPROCESS, "mapping: %zu\n", m.pml4_ppn);
+  //debug(USERPROCESS, "TID: %zu\n", currentThread->getTID());
+  //currentThread->kernel_registers_->cr3 = loader_->arch_memory_.page_map_level_4_ * PAGE_SIZE;
+  //ArchThreads::atomic_set(currentThread->user_registers_->cr3, loader_->arch_memory_.page_map_level_4_ * PAGE_SIZE);
+  ArchThreads::setAddressSpace(currentThread, loader_->arch_memory_);
+  //ArchThreads::printThreadRegisters(currentThread);
+  debug(USERPROCESS, "Copied pages and updated CR3 registers\n");
 
-  Loader *old_loader = loader_;
-  loader_ = loader;
-  delete old_loader;
-  */
-  ArchMemoryMapping m = currentThread->loader_->arch_memory_.resolveMapping(currentThread->kernel_registers_->rsp / PAGE_SIZE);
-  debug(USERPROCESS, "mapping: %zu\n", m.pml4_ppn);
-  debug(USERPROCESS, "TID: %zu\n", currentThread->getTID());
-  currentThread->kernel_registers_->cr3 = loader_->arch_memory_.page_map_level_4_ * PAGE_SIZE;
-  ArchThreads::atomic_set(currentThread->user_registers_->cr3, loader_->arch_memory_.page_map_level_4_ * PAGE_SIZE);
-  //ArchThreads::setAddressSpace(currentThread, loader_->arch_memory_);
-  //  Execution ends after setAddressSpace ??
-  ArchThreads::printThreadRegisters(currentThread);
-
-  // Something goes wring after setting the cr3 registers with the copied phdrs in the loader
+  cow_holding_ps->remove(this);
+  if(cow_holding_ps->size() == 1)
+  {
+    cow_holding_ps->front()->cow_holding_ps = nullptr;
+    cow_holding_ps->front()->fork_lock_ = nullptr;
+    delete cow_holding_ps;
+    cow_holding_ps = nullptr;
+  }
+  
   return pml4;
 }
 

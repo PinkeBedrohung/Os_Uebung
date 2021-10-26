@@ -40,18 +40,14 @@ UserThread::UserThread(UserThread &thread, UserProcess* process) :
         Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD),
         fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber())
 {
-    //(void)thread;
     loader_ = process->getLoader();
 
-    
     ArchThreads::createUserRegisters(user_registers_, loader_->getEntryFunction(),
                                         (void*) (USER_BREAK - sizeof(pointer)),
                                         getKernelStackStartPointer());   
     
-
     if (main_console->getTerminal(terminal_number_))
         setTerminal(main_console->getTerminal(terminal_number_));
-    
     
     copyRegisters(&thread);
     ArchThreads::setAddressSpace(this, loader_->arch_memory_);

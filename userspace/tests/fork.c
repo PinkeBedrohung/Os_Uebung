@@ -5,18 +5,30 @@ int main()
 {
     int var = 0;
     //(void)var;
-    fork();
+    var = fork();
     
-    var++;
-    printf("var: %d", var);
-    /*
-    if (var == 1)
+    //var++;
+    
+    if (var != 0)
     {
-        var++;
+        printf("var: %d\n", var);
+        while (1)
+        {
+        }
     }
-    */
-    while (1)
+    else
     {
+        var = fork();
+        printf("var: %d\n", var);
+        if (var != 0)
+        {
+            while (1)
+            {
+            }
+        }
     }
+
+    
+
     return 0;
 }

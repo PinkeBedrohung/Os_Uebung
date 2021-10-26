@@ -27,6 +27,8 @@ class ArchMemoryMapping
     uint64 pti;
 };
 
+enum EntryCounter{Increment, Decrement, Keep};
+
 class ArchMemory
 {
 public:
@@ -92,7 +94,7 @@ public:
   const ArchMemoryMapping resolveMapping(uint64 vpage);
   static const ArchMemoryMapping resolveMapping(uint64 pml4,uint64 vpage);
 
-  static void writeable(uint64 pml4_ppn, uint64 writeable);
+  static void writeable(uint64 pml4_ppn, int8 writeable, EntryCounter entr_ctr = Increment, uint64 entr_ctr_value = 1);
   static uint64 copyPagingStructure(uint64 pml4_ppn);
   static void printMemoryMapping(ArchMemoryMapping* mapping);
   static void setKernelPagingPML4(uint64 pml4_ppn, uint64 new_pml4_ppn);

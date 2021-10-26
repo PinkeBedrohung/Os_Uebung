@@ -307,20 +307,13 @@ bool Loader::prepareHeaders()
 
 Loader::Loader(Loader &loader, size_t fd) : arch_memory_(loader.arch_memory_), fd_(fd), program_binary_lock_("Loader::program_binary_lock_"), userspace_debug_info_(0)
 {
-  
   hdr_ = new Elf::Ehdr;
   memcpy(hdr_, loader.hdr_, sizeof(Elf::Ehdr));
-
-  //debug(LOADER, "PHDRS size: %zu\n", phdrs_.size());
   
   for (const auto &phdr : loader.phdrs_)
   {
-    debug(LOADER, "vaddr: %p\n", (void*)phdr.p_vaddr);
-    //debug(LOADER, "vaddr_ppn: %zu\n", ((UserThread*)currentThread)->getProcess()->getLoader()->arch_memory_.resolveMapping(phdr.p_vaddr).page_ppn);
-    debug(LOADER, "memsz: %p\n", (void*)phdr.p_memsz);
     phdrs_.push_back(phdr);
   }
-  
   
   loadDebugInfoIfAvailable();
   
