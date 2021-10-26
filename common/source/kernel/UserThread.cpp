@@ -52,8 +52,9 @@ UserThread::UserThread(UserThread &thread, UserProcess* process) :
     if (main_console->getTerminal(terminal_number_))
         setTerminal(main_console->getTerminal(terminal_number_));
     
-    ArchThreads::setAddressSpace(this, loader_->arch_memory_);
+    
     copyRegisters(&thread);
+    ArchThreads::setAddressSpace(this, loader_->arch_memory_);
     switch_to_userspace_ = 1;
 }
 

@@ -323,6 +323,14 @@ uint64 ArchMemory::copyPagingStructure(uint64 pml4_ppn)
   PageDirPointerTableEntry *pdpt;
   PageDirEntry *pd;
   PageTableEntry *pt;
+  
+  for (size_t pml4i = 0; pml4i < PAGE_MAP_LEVEL_4_ENTRIES / 2; pml4i++)
+  {
+    if(pml4[pml4i].present && pml4[pml4i].access_ctr == 0)
+    {
+      return pml4_ppn;
+    }
+  }
 
   uint64 new_pml4_ppn = PageManager::instance()->allocPPN();
   PageMapLevel4Entry *new_pml4 = (PageMapLevel4Entry*)ArchMemory::getIdentAddressOfPPN(new_pml4_ppn);
@@ -334,13 +342,13 @@ uint64 ArchMemory::copyPagingStructure(uint64 pml4_ppn)
   {
     if(pml4[pml4i].present)
     {
-      /*
+      
       assert(pml4[pml4i].access_ctr > 0);
       pml4[pml4i].access_ctr--;
 
       if(pml4[pml4i].access_ctr == 0)
         pml4[pml4i].writeable = 1;
-      */
+      
       memcpy(&new_pml4[pml4i], &pml4[pml4i], sizeof(PageMapLevel4Entry));
       new_pml4[pml4i].writeable = 1;
       new_pml4[pml4i].access_ctr = 0;
@@ -353,13 +361,13 @@ uint64 ArchMemory::copyPagingStructure(uint64 pml4_ppn)
       {
         if(pdpt[pdpti].pd.present)
         {
-          /*
+          
           assert(pdpt[pdpti].pd.access_ctr > 0);
           pdpt[pdpti].pd.access_ctr--;
 
           if(pdpt[pdpti].pd.access_ctr == 0)
             pdpt[pdpti].pd.writeable = 1;
-          */
+          
           memcpy(&new_pdpt[pdpti], &pdpt[pdpti], sizeof(PageDirPointerTableEntry));
           new_pdpt[pdpti].pd.writeable = 1;
           new_pdpt[pdpti].pd.access_ctr = 0;
@@ -372,13 +380,13 @@ uint64 ArchMemory::copyPagingStructure(uint64 pml4_ppn)
           {
             if(pd[pdi].pt.present)
             {
-              /*
+              
               assert(pd[pdi].pt.access_ctr > 0);
               pd[pdi].pt.access_ctr--;
 
               if(pd[pdi].pt.access_ctr == 0)
                 pd[pdi].pt.writeable = 1;
-              */
+              
               memcpy(&new_pd[pdi], &pd[pdi], sizeof(PageDirEntry));
               new_pd[pdi].pt.writeable = 1;
               new_pd[pdi].pt.access_ctr = 0;
@@ -391,13 +399,13 @@ uint64 ArchMemory::copyPagingStructure(uint64 pml4_ppn)
               {
                 if(pt[pti].present)
                 {
-                  /*
+                  
                   assert(pt[pti].access_ctr > 0);
                   pt[pti].access_ctr--;
 
                   if(pt[pti].access_ctr == 0)
                     pt[pti].writeable = 1;
-                  */
+                  
                   memcpy(&new_pt[pti], &pt[pti], sizeof(PageTableEntry));
                   new_pt[pti].writeable = 1;
                   new_pt[pti].access_ctr = 0;
@@ -412,7 +420,22 @@ uint64 ArchMemory::copyPagingStructure(uint64 pml4_ppn)
       }
     }
   }
+  ArchMemory::setKernelPagingPML4(pml4_ppn, new_pml4_ppn);
   return new_pml4_ppn;
+}
+
+void ArchMemory::setKernelPagingPML4(uint64 pml4_ppn, uint64 new_pml4_ppn)
+{
+  PageMapLevel4Entry *pml4 = (PageMapLevel4Entry*)ArchMemory::getIdentAddressOfPPN(pml4_ppn);
+  PageMapLevel4Entry *new_pml4 = (PageMapLevel4Entry*)ArchMemory::getIdentAddressOfPPN(new_pml4_ppn);
+
+  for (size_t pml4i = PAGE_MAP_LEVEL_4_ENTRIES / 2; pml4i < PAGE_MAP_LEVEL_4_ENTRIES; pml4i++)
+  {
+    if(pml4[pml4i].present)
+    {
+      memcpy(&new_pml4[pml4i], &pml4[pml4i], sizeof(PageMapLevel4Entry));
+    }
+  }
 }
 
 void ArchMemory::printMemoryMapping(ArchMemoryMapping* mapping)

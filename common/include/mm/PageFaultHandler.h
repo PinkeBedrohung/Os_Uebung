@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.h"
+#include "Mutex.h"
 
 class PageFaultHandler
 {
@@ -10,6 +11,7 @@ private:
    * a pagefault happened by dereferencing a null pointer.
    */
   static const size_t null_reference_check_border_;
+  static Mutex cow_lock_;
 
   /**
    * Print out the pagefault information. Check if the pagefault is valid, or the thread state is corrupt.

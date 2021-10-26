@@ -3,12 +3,12 @@
 
 int main()
 {
-    //int var = 0;
+    int var = 0;
     //(void)var;
     fork();
     
-    //var++;
-    //printf("var: %d", var);
+    var++;
+    printf("var: %d", var);
     /*
     if (var == 1)
     {

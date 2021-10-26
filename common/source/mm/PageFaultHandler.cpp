@@ -11,6 +11,7 @@
 extern "C" void arch_contextSwitch();
 
 const size_t PageFaultHandler::null_reference_check_border_ = PAGE_SIZE;
+Mutex PageFaultHandler::cow_lock_("PageFaultHandler::cow_lock_");
 
 inline bool PageFaultHandler::checkPageFaultIsValid(size_t address, bool user,
                                                     bool present, bool switch_to_us)
@@ -34,13 +35,15 @@ inline bool PageFaultHandler::checkPageFaultIsValid(size_t address, bool user,
   else if(present)
   {
     debug(PAGEFAULT, "You got a pagefault even though the address is mapped.\n");
-    /*
+    
     if(currentThread->getThreadType() == Thread::USER_THREAD)
     {
+      MutexLock lock(PageFaultHandler::cow_lock_);
       ((UserThread *)currentThread)->getProcess()->copyPages();
+      //ArchMemory::writeable(((UserThread *)currentThread)->loader_->arch_memory_.page_map_level_4_, 1);
       return true;
     }
-    */
+    
   }
   else
   {
@@ -69,6 +72,9 @@ inline void PageFaultHandler::handlePageFault(size_t address, bool user,
 
   if (checkPageFaultIsValid(address, user, present, switch_to_us))
   {
+    if(present && currentThread->getThreadType() == Thread::USER_THREAD)
+      return;
+
     currentThread->loader_->loadPage(address);
   }
   else
