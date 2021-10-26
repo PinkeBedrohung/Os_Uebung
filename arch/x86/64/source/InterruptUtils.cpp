@@ -166,14 +166,15 @@ extern "C" void arch_irqHandler_0();
 extern "C" void irqHandler_0()
 {
   //for higher precision measure rdtsc atleast 5 times and find average
-  if(counter < 10) 
+  //TODO: skip first few ticks because rdtsc measuring isnt like on the later ticks - too much difference
+  if(counter < 13) 
   {
     //debug(USERTHREAD, "rdtsc: %lld \n",st);
     if(st > 0)
     {
       et += ArchThreads::rdtsc()-st;
       counter++;
-      if(counter == 10) Scheduler::instance()->average_rdtsc_ = et/10; //average cycles
+      if(counter == 13) Scheduler::instance()->average_rdtsc_ = et/13; //average cycles
     }
     st = ArchThreads::rdtsc();
   }

@@ -25,5 +25,6 @@ class Syscall
   static size_t createThread(size_t thread, size_t attr, size_t start_routine, size_t arg, size_t entry_function);
   static size_t exitThread(size_t retval);
   static size_t clock();
+  static size_t sleep(unsigned int seconds);
 };
 

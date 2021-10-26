@@ -1,5 +1,6 @@
 #include "unistd.h"
-
+#include <sys/syscall.h>
+#include "../../../common/include/kernel/syscall-definitions.h"
 
 /**
  * function stub
@@ -26,7 +27,7 @@ void* sbrk(intptr_t increment)
  */
 unsigned int sleep(unsigned int seconds)
 {
-  return -1U;
+  return (unsigned int) __syscall(sc_sleep, (size_t) seconds, 0x0, 0x0, 0x0, 0x0);
 }
 
 

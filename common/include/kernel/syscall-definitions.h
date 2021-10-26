@@ -21,3 +21,4 @@
 #define sc_pthread_exit 51
 
 #define sc_clock 99
+#define sc_sleep 100

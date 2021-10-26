@@ -54,6 +54,11 @@ uint32 Scheduler::schedule()
       break;
     }
   }
+  if(currentThread->state_ == Sleeping && currentThread->time_to_sleep_ <= ArchThreads::rdtsc())
+  {
+    currentThread->time_to_sleep_ = 0;
+    currentThread->setState(Running);
+  }
 
   assert(it != threads_.end() && "No schedulable thread found");
 

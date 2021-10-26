@@ -58,6 +58,9 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     case sc_clock:
       return_value = clock();
       break;
+    case sc_sleep:
+      return_value = sleep((unsigned int) arg1);
+      break;
     case sc_pseudols:
       VfsSyscall::readdir((const char*) arg1);
       break;
@@ -209,10 +212,20 @@ size_t Syscall::clock()
 {
   unsigned long long rdtsc = ArchThreads::rdtsc(); //now
   unsigned long long difference = rdtsc - currentThread->cpu_start_rdtsc;
-  debug(SYSCALL,"Difference: %lld\n", difference);
-  debug(SYSCALL,"rdtsc: %lld\n", rdtsc);
+  //debug(SYSCALL,"Difference: %lld\n", difference);
+  //debug(SYSCALL,"rdtsc: %lld\n", rdtsc);
   size_t retval = (difference)/(Scheduler::instance()->average_rdtsc_/(54925439/1000));
-  debug(SYSCALL,"retval: %ld\n", retval);
+  //debug(SYSCALL,"retval: %ld\n", retval);
   return (size_t) retval; //clock ticks
   //The value returned is expressed in clock ticks.
+}
+
+size_t Syscall::sleep(unsigned int seconds)
+{
+  unsigned long long additional_time = seconds*(Scheduler::instance()->average_rdtsc_/(54925439/1000));
+  unsigned long long expected_time = ArchThreads::rdtsc() + additional_time; //start rdtsc + additional time
+  currentThread->time_to_sleep_ = expected_time;
+  currentThread->setState(Sleeping);
+  Scheduler::instance()->yield();
+  return 0;
 }

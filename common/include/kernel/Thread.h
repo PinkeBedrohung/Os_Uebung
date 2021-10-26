@@ -128,6 +128,8 @@ class Thread
 
     TYPE getThreadType();
 
+    unsigned long long time_to_sleep_ = 0;
+
   private:
     Thread(Thread const &src);
     Thread &operator=(Thread const &src);
