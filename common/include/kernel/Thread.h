@@ -101,7 +101,7 @@ class Thread
 
     Loader* loader_;
 
-
+    unsigned long long cpu_start_rdtsc = 0;
     void setState(ThreadState state);
 
     /**

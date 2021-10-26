@@ -159,10 +159,24 @@ extern "C" void arch_contextSwitch();
 
 extern ArchThreadRegisters *currentThreadRegisters;
 extern Thread *currentThread;
-
+size_t counter = 0;
+unsigned long long et = 0; //elapsed time
+unsigned long long st = 0;
 extern "C" void arch_irqHandler_0();
 extern "C" void irqHandler_0()
 {
+  //for higher precision measure rdtsc atleast 5 times and find average
+  if(counter < 10) 
+  {
+    //debug(USERTHREAD, "rdtsc: %lld \n",st);
+    if(st > 0)
+    {
+      et += ArchThreads::rdtsc()-st;
+      counter++;
+      if(counter == 10) Scheduler::instance()->average_rdtsc_ = et/10; //average cycles
+    }
+    st = ArchThreads::rdtsc();
+  }
   ++outstanding_EOIs;
   ArchCommon::drawHeartBeat();
 

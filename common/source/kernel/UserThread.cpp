@@ -36,7 +36,7 @@ UserThread::UserThread(UserProcess* process, size_t* tid, void* (*routine)(void*
 void UserThread::createThread(void* entry_function)
 {
     size_t page_for_stack = PageManager::instance()->allocPPN();
-    page_offset_ = process_->created_threads_ + 1;
+    page_offset_ = process_->created_threads_ + 1; //improve thread addresses 
 
     size_t stack_address = (size_t) (USER_BREAK - sizeof(pointer) - (PAGE_SIZE * page_offset_));
     
@@ -47,7 +47,7 @@ void UserThread::createThread(void* entry_function)
     ArchThreads::setAddressSpace(this, loader_->arch_memory_);
 
     debug(USERTHREAD, "ctor: Done loading %s\n", name_.c_str());
-
+    cpu_start_rdtsc = ArchThreads::rdtsc();
     if (main_console->getTerminal(terminal_number_))
         setTerminal(main_console->getTerminal(terminal_number_));
 

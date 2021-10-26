@@ -28,6 +28,7 @@ class Scheduler
     void incTicks();
     uint32 getTicks();
 
+    size_t average_rdtsc_ = 0;
     /**
      * NEVER EVER EVER CALL THIS METHOD OUTSIDE OF AN INTERRUPT CONTEXT
      * this is the method that decides which threads will be scheduled next
@@ -67,7 +68,6 @@ class Scheduler
 
     typedef ustl::list<Thread*> ThreadList;
     ThreadList threads_;
-
     Mutex list_lock_;
     Mutex num_threads_lock_;
     ustl::list<size_t> used_tids_;

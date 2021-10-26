@@ -8,6 +8,7 @@
 #include "UserThread.h"
 #include "ProcessRegistry.h"
 #include "File.h"
+#include "ArchThreads.h"
 
 size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2, size_t arg3, size_t arg4, size_t arg5)
 {
@@ -53,6 +54,9 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
       break;
     case sc_pthread_exit:
       exitThread(arg1);
+      break;
+    case sc_clock:
+      return_value = clock();
       break;
     case sc_pseudols:
       VfsSyscall::readdir((const char*) arg1);
@@ -199,4 +203,16 @@ size_t Syscall::exitThread(size_t retval)
   // TODO: End
   currentThread->kill();
   return 0;
+}
+
+size_t Syscall::clock()
+{
+  unsigned long long rdtsc = ArchThreads::rdtsc(); //now
+  unsigned long long difference = rdtsc - currentThread->cpu_start_rdtsc;
+  debug(SYSCALL,"Difference: %lld\n", difference);
+  debug(SYSCALL,"rdtsc: %lld\n", rdtsc);
+  size_t retval = (difference)/(Scheduler::instance()->average_rdtsc_/(54925439/1000));
+  debug(SYSCALL,"retval: %ld\n", retval);
+  return (size_t) retval; //clock ticks
+  //The value returned is expressed in clock ticks.
 }

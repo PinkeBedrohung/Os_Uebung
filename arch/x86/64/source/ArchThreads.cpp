@@ -189,7 +189,4 @@ unsigned long long ArchThreads::rdtsc(void)
   return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
 }
 
-size_t ArchThreads::getRand(size_t from, size_t to)
-{
-  return from + (rdtsc() % (to - from));
-}
+
