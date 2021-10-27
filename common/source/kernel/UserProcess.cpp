@@ -248,11 +248,18 @@ size_t UserProcess::getNumThreads()
 
 size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void* args, void* entry_function)
 {
-  Thread* thread = new UserThread(this, tid, routine, args, entry_function);
+  Thread* thread = new UserThread(this, routine, args, entry_function);
+  if(thread != NULL)
+  {
   addThread(thread);
 
   Scheduler::instance()->addNewThread(thread);
+  *tid = thread->getTID();
   return 0;
+  }
+  else{
+    return -1;
+  }
 }
 
 void UserProcess::mapRetVals(size_t tid, void* retval)

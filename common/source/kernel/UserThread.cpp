@@ -22,7 +22,7 @@ UserThread::UserThread(UserProcess* process) :
     join_ = NULL;
 }
 
-UserThread::UserThread(UserProcess* process, size_t* tid, void* (*routine)(void*), void* args, void* entry_function) :
+UserThread::UserThread(UserProcess* process,  void* (*routine)(void*), void* args, void* entry_function) :
         Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD)
         , fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber())
         , alive_cond_(&process->alive_lock_, "alive_cond_")
@@ -32,8 +32,6 @@ UserThread::UserThread(UserProcess* process, size_t* tid, void* (*routine)(void*
     createThread(entry_function);
     join_ = NULL;
 
-
-    *tid = this->getTID();
 
     debug(USERTHREAD, "ATTENTION: Not first Thread\n, setting rdi:%zu , and rsi:%zu\n", (size_t)routine,(size_t)args);
     ArchThreads::atomic_set(this->user_registers_->rdi, (size_t)routine);
