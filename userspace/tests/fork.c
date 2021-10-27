@@ -3,31 +3,26 @@
 
 int main()
 {
-    int var = 0;
-    //(void)var;
-    var = fork();
-    
-    //var++;
-    
-    if (var != 0)
+    int var = 1;
+
+    for (size_t i = 0; i < 50; i++)
     {
-        printf("var: %d\n", var);
-        while (0)
-        {
-        }
-    }
-    else
-    {
-        var = fork();
-        printf("var: %d\n", var);
         if (var != 0)
         {
-            while (0)
+            var = fork();
+            if (var != 0)
             {
+                printf("var: %d\n", var);
+            }
+            else
+            {
+                break;
             }
         }
-    }
 
+    }
+    
+    
     
 
     return 0;
