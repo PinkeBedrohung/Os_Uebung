@@ -88,6 +88,7 @@ uint32 Scheduler::schedule()
 void Scheduler::addNewThread(Thread *thread)
 {
   assert(thread);
+  
   thread->setThreadID(getNewTID());
   debug(SCHEDULER, "addNewThread: %p  %zd:%s\n", thread, thread->getTID(), thread->getName());
   if (currentThread)

@@ -19,14 +19,12 @@ UserThread::UserThread(UserProcess* process) :
     createThread(loader_->getEntryFunction());
 }
 
-UserThread::UserThread(UserProcess* process, size_t* tid, void* (*routine)(void*), void* args, void* entry_function) :
+UserThread::UserThread(UserProcess* process,  void* (*routine)(void*), void* args, void* entry_function) :
         Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD)
         , fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber())
 {
     loader_ = process_->getLoader();
     createThread(entry_function);
-
-    *tid = this->getTID();
 
     debug(USERTHREAD, "ATTENTION: Not first Thread\n, setting rdi:%zu , and rsi:%zu\n", (size_t)routine,(size_t)args);
     ArchThreads::atomic_set(this->user_registers_->rdi, (size_t)routine);
