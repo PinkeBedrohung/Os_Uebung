@@ -12,7 +12,7 @@ int main()
     if (var != 0)
     {
         printf("var: %d\n", var);
-        while (1)
+        while (0)
         {
         }
     }
@@ -22,7 +22,7 @@ int main()
         printf("var: %d\n", var);
         if (var != 0)
         {
-            while (1)
+            while (0)
             {
             }
         }

@@ -92,28 +92,32 @@ UserProcess::~UserProcess()
     delete fork_lock_;
 
   fork_lock_ = nullptr;
-
+  
   // Remove the current process from the child processes list of the parent
-  for (auto &parents_child_process : parent_process_->child_processes_)
+  if(parent_process_)
   {
-    if (parents_child_process == this)
+    for (auto &parents_child_process : parent_process_->child_processes_)
     {
-      parent_process_->child_processes_.remove(this);
+      if (parents_child_process == this)
+      {
+        parent_process_->child_processes_.remove(this);
+      }
     }
   }
+    // Set the parent of the children to the parent process
+    for (auto &child_process : child_processes_)
+    {
+      child_process->parent_process_ = parent_process_;
+    }
   
-  // Set the parent of the children to the parent process
-  for (auto &child_process : child_processes_)
-  {
-    child_process->parent_process_ = parent_process_;
-  }
-
   delete loader_;
   loader_ = 0;
-
+  
   if (fd_ > 0)
-      VfsSyscall::close(fd_);
-
+  {
+    
+    //VfsSyscall::close(fd_);
+  }
   ProcessRegistry::instance()->releasePID(pid_);
   ProcessRegistry::instance()->processExit();
 }

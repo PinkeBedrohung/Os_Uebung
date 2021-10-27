@@ -36,7 +36,23 @@ public:
 
 private:
     ustl::list<FileDescriptor*> fds_;
+    ustl::map<FileDescriptor*, uint32> fdms_;
     Mutex fd_lock_;
+};
+
+class LocalFileDescriptorList : public FileDescriptorList
+{
+public:
+    LocalFileDescriptorList();
+    ~LocalFileDescriptorList();
+
+    int add(uint32 fd_num, FileDescriptor* fd);
+    int remove(uint32 fd_num, FileDescriptor* fd);
+    FileDescriptor* getFileDescriptor(uint32 fd);
+
+private:
+    ustl::map<uint32, FileDescriptor*> fd_maps_;
+    Mutex fd_map_lock_;
 };
 
 extern FileDescriptorList global_fd_list;

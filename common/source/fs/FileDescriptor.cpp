@@ -10,6 +10,7 @@
 #include "MutexLock.h"
 #include "File.h"
 
+
 FileDescriptorList global_fd_list;
 
 static size_t fd_num_ = 3;
@@ -28,7 +29,7 @@ FileDescriptor::~FileDescriptor()
 }
 
 FileDescriptorList::FileDescriptorList() :
-    fds_(), fd_lock_("File descriptor list lock")
+    fds_(), fdms_(), fd_lock_("File descriptor list lock")
 {
 }
 
@@ -37,6 +38,10 @@ FileDescriptorList::~FileDescriptorList()
   for(auto fd : fds_)
   {
     fd->getFile()->closeFd(fd);
+  }
+  for(auto fd : fdms_)
+  {
+    fd.first->getFile()->closeFd(fd.first);
   }
 }
 
@@ -48,6 +53,13 @@ int FileDescriptorList::add(FileDescriptor* fd)
   for(auto x : fds_)
   {
     if(x->getFd() == fd->getFd())
+    {
+      return -1;
+    }
+  }
+  for(auto x : fdms_)
+  {
+    if(x.first->getFd() == fd->getFd())
     {
       return -1;
     }
@@ -86,5 +98,44 @@ FileDescriptor* FileDescriptorList::getFileDescriptor(uint32 fd_num)
     }
   }
 
+  return nullptr;
+}
+
+
+LocalFileDescriptorList::LocalFileDescriptorList() :
+    fd_maps_(), fd_map_lock_("Local file descriptor list lock")
+{
+  
+}
+
+LocalFileDescriptorList::~LocalFileDescriptorList()
+{
+  for(auto fd : fd_maps_)
+  {
+    fd.second->getFile()->closeFd(fd.second);
+  }
+}
+
+int LocalFileDescriptorList::add(uint32 fd_num, FileDescriptor* fd)
+{
+  fd_maps_.insert(ustl::pair<uint32, FileDescriptor*>(fd_num, fd));
+  return 0;
+}
+
+int LocalFileDescriptorList::remove(uint32 fd_num, FileDescriptor* fd)
+{
+  for (auto &fd_map : fd_maps_)
+  {
+    if(fd_num == fd_map.first && fd == fd_map.second)
+    {
+      fd_maps_.erase(fd_map.first);
+    }
+  }
+  return 0;
+}
+
+FileDescriptor* LocalFileDescriptorList::getFileDescriptor(uint32 fd)
+{
+  (void)fd;
   return nullptr;
 }
