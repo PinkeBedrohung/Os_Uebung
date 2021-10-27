@@ -182,3 +182,11 @@ void ArchThreads::debugCheckNewThread(Thread* thread)
     return;
   assert(currentThread->user_registers_->rsp0 != thread->user_registers_->rsp0 && "no 2 threads may have the same esp0 value");
 }
+unsigned long long ArchThreads::rdtsc(void)
+{
+  unsigned hi, lo;
+  __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
+  return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
+}
+
+

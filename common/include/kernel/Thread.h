@@ -7,7 +7,7 @@
 
 enum ThreadState
 {
-  Running, Sleeping, ToBeDestroyed
+  Running, Sleeping, ToBeDestroyed, USleep
 };
 
 enum SystemState { BOOTING, RUNNING, KPANIC };
@@ -101,7 +101,7 @@ class Thread
 
     Loader* loader_;
 
-
+    unsigned long long cpu_start_rdtsc = 0;
     void setState(ThreadState state);
 
     /**
@@ -127,6 +127,8 @@ class Thread
     void setThreadID(size_t tid);
 
     TYPE getThreadType();
+
+    unsigned long long time_to_sleep_ = 0;
 
   private:
     Thread(Thread const &src);

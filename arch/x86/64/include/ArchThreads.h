@@ -151,6 +151,8 @@ public:
    * @param thread
    */
   static void debugCheckNewThread(Thread* thread);
+  static unsigned long long rdtsc(void);
+
 
 private:
   /**

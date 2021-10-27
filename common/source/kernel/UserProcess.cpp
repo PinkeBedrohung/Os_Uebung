@@ -17,9 +17,9 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
         terminal_number_(terminal_number), parent_process_(0), child_processes_(), threads_lock_("UserProcess::threads_lock_"), num_threads_(0)
 {
   ProcessRegistry::instance()->processStart(); //should also be called if you fork a process
-  
-  if (fd_ >= 0)
-      loader_ = new Loader(fd_);
+  created_threads_ = 0;
+   if (fd_ >= 0)
+        loader_ = new Loader(fd_);
 
   if (!loader_ || !loader_->loadExecutableAndInitProcess())
   {
@@ -161,6 +161,7 @@ void UserProcess::addThread(Thread *thread){
   threads_lock_.acquire();
   threads_.push_back(thread);
   num_threads_++;
+  created_threads_++;
   threads_lock_.release();
 
   //debug(USERPROCESS, "Added thread with TID %zu to process with PID %zu\n", thread->getTID(), getPID());
@@ -218,4 +219,24 @@ uint64 UserProcess::copyPages()
 size_t UserProcess::getNumThreads()
 {
   return num_threads_;
+}
+
+size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void* args, void* entry_function)
+{
+  Thread* thread = new UserThread(this, tid, routine, args, entry_function);
+  addThread(thread);
+
+  Scheduler::instance()->addNewThread(thread);
+  return 0;
+}
+
+void UserProcess::mapRetVals(size_t tid, void* retval)
+{
+  for (auto it = threads_.begin(); it != threads_.end(); it++)
+  {
+    if(((UserThread*)it)->getTID() == tid)
+    {
+      retvals_.insert(ustl::make_pair(tid, retval));
+    }
+  }
 }

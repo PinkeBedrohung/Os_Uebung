@@ -10,6 +10,7 @@
 #include "File.h"
 #include "ArchMemory.h"
 #include "Loader.h"
+#include "ArchThreads.h"
 
 size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2, size_t arg3, size_t arg4, size_t arg5)
 {
@@ -49,6 +50,18 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
       break;
     case sc_trace:
       trace();
+      break;
+    case sc_pthread_create:
+      return_value = createThread(arg1, arg2, arg3, arg4, arg5);
+      break;
+    case sc_pthread_exit:
+      exitThread(arg1);
+      break;
+    case sc_clock:
+      return_value = clock();
+      break;
+    case sc_sleep:
+      return_value = sleep((unsigned int) arg1);
       break;
     case sc_pseudols:
       VfsSyscall::readdir((const char*) arg1);
@@ -198,4 +211,55 @@ size_t Syscall::fork()
   ProcessRegistry::instance()->createProcess(new_process);
 
   return new_process->getPID();
+}
+size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, size_t arg, size_t entry_function)
+{
+  if((size_t)start_routine >= USER_BREAK || (size_t)arg >= USER_BREAK) return -1U;
+  if((size_t)thread < USER_BREAK || (size_t)attr < USER_BREAK || (size_t)start_routine < USER_BREAK)
+  {
+    UserProcess* uprocess = ((UserThread*)currentThread)->getProcess();
+    return uprocess->createUserThread((size_t*) thread, (void* (*)(void*))start_routine, (void*) arg, (void*) entry_function);
+  }
+  else
+  {
+    exit(50);
+    return -1U;
+  }
+}
+
+void Syscall::exitThread(size_t retval)
+{
+  // TODO: Add retval to process for join
+  if (retval) {
+    UserProcess* process = ((UserThread*)currentThread)->getProcess();
+    process->mapRetVals(currentThread->getTID(), (void*) retval);
+  }
+  // TODO: End
+  currentThread->kill();
+}
+
+size_t Syscall::clock()
+{
+  unsigned long long rdtsc = ArchThreads::rdtsc(); //now
+  unsigned long long difference = rdtsc - currentThread->cpu_start_rdtsc;
+  //debug(SYSCALL,"Difference: %lld\n", difference);
+  //debug(SYSCALL,"rdtsc: %lld\n", rdtsc);
+  size_t retval = (difference)/(Scheduler::instance()->average_rdtsc_/(54925439/1000));
+  //debug(SYSCALL,"retval: %ld\n", retval);
+  return (size_t) retval; //clock ticks
+  //The value returned is expressed in clock ticks.
+}
+
+size_t Syscall::sleep(unsigned int seconds)
+{
+  unsigned long long current_rdtsc = ArchThreads::rdtsc();
+
+  //debug(SYSCALL,"rdtsc time: %lld\n", current_rdtsc);
+  unsigned long long additional_time = (seconds*1000)*(Scheduler::instance()->average_rdtsc_/(54925439/1000000));
+  unsigned long long expected_time = current_rdtsc + additional_time; //start rdtsc + additional time
+  currentThread->time_to_sleep_ = expected_time;
+  //debug(SYSCALL,"expected time: %lld\n", expected_time);
+  currentThread->setState(USleep);
+  Scheduler::instance()->yield();
+  return 0;
 }

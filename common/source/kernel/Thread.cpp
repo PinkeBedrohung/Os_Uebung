@@ -13,8 +13,6 @@
 
 #define BACKTRACE_MAX_FRAMES 20
 
-
-
 const char* Thread::threadStatePrintable[3] =
 {
 "Running", "Sleeping", "ToBeDestroyed"

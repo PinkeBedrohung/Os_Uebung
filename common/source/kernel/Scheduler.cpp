@@ -14,6 +14,7 @@
 #include "ustring.h"
 #include "Lock.h"
 #include "UserThread.h"
+#include "UserProcess.h"
 
 ArchThreadRegisters *currentThreadRegisters;
 Thread *currentThread;
@@ -50,9 +51,18 @@ uint32 Scheduler::schedule()
     if((*it)->schedulable())
     {
       currentThread = *it;
+     
       break;
     }
+     
+     if((*it)->getState() == USleep && (*it)->time_to_sleep_ <= ArchThreads::rdtsc())
+      {
+        //debug(SYSCALL,"rdtsc: %lld\n", ArchThreads::rdtsc());
+        (*it)->time_to_sleep_ = 0;
+        (*it)->setState(Running);
+      }
   }
+  
 
   assert(it != threads_.end() && "No schedulable thread found");
 

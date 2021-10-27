@@ -6,6 +6,7 @@
 #include "UserThread.h"
 
 class UserThread;
+#include "umap.h"
 
 class UserProcess
 {
@@ -39,8 +40,14 @@ class UserProcess
     Mutex* fork_lock_;
     ustl::list<UserProcess *> *cow_holding_ps;
     // bool holding_cow_;
-    //  static const size_t MAX_PID = 4194304;
 
+    static const size_t MAX_PID = 4194304;
+    size_t createUserThread(size_t* tid, void* (*routine)(void*), void* args, void* entry_function);
+
+    size_t created_threads_;
+    ustl::map<size_t, void*> retvals_;
+
+    void mapRetVals(size_t tid, void* retval);
   private:
     int32 fd_;
     uint32 pid_;
@@ -53,5 +60,5 @@ class UserProcess
 
     Mutex threads_lock_;
     ThreadList threads_;
-    size_t num_threads_;
+    size_t num_threads_;  
 };
