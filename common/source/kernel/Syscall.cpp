@@ -204,12 +204,11 @@ size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, s
 
 void Syscall::exitThread(size_t retval)
 {
-  // TODO: Add retval to process for join
+  //TODO: when a thread is cancelled, store -1 in retval so join can also return -1 as PTHREAD_CANCELED
   if (retval) {
     UserProcess* process = ((UserThread*)currentThread)->getProcess();
     process->mapRetVals(currentThread->getTID(), (void*) retval);
   }
-  // TODO: End
   currentThread->kill();
 }
 
@@ -249,31 +248,41 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
 
   // TODO
   // check if the thread was canceled and pass the PTHREAD_CANCELED to value_ptr
+  // SOLVED: exit will pass -1 as retval when cancel is called
 
   UserThread* calling_thread = ((UserThread*)currentThread);
   UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
   UserThread* thread_to_join = ((UserThread*)current_process->getThread(thread));
 
+  if(thread == calling_thread->getTID())
+  {
+    //debug(SYSCALL, "Thread is calling join on itselt")
+    return (size_t)-1U;
+  }
+
   if(current_process->retvals_.find(thread) == current_process->retvals_.end())
   {
+
+    //TODO check if other thread in join chain of thread_to_join is waiting for our calling_thread to avoid join deadlock
+    if(calling_thread->chainJoin((size_t)thread_to_join))
+    {
+      return (size_t) -1U;
+    }
+
     current_process->threads_lock_.acquire();
     calling_thread->join_ = thread_to_join;
     current_process->alive_lock_.acquire();
     current_process->threads_lock_.release();
     thread_to_join->alive_cond_.waitAndRelease();
     calling_thread->join_ = NULL;
-   }
+  }
 
   if(value_ptr != NULL)
   {
     if((uint64)value_ptr <= USER_BREAK)
-    {
       *value_ptr = current_process->retvals_.at(thread);
-    }
     else
-    {
       return (size_t) -1U;
-    }
   }
 
   return (size_t) 0;

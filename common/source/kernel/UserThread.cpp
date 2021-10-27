@@ -87,3 +87,18 @@ void UserThread::Run()
 UserProcess *UserThread::getProcess(){
     return process_;
 }
+
+bool UserThread::chainJoin(size_t thread)
+{
+    UserThread* joiner = (UserThread*) ((UserThread*)currentThread)->getProcess()->getThread(thread);
+    size_t caller = currentThread->getTID();
+
+    while(joiner != NULL)
+    {
+        if(joiner->getTID() == caller)
+            return true;
+
+        joiner = joiner->join_;
+    }
+    return false;
+}

@@ -17,6 +17,7 @@ public:
     ~UserThread();
     virtual void Run(); // not used
     UserProcess *getProcess();
+    bool chainJoin(size_t thread);
     UserThread* join_;
     Condition alive_cond_;
 
