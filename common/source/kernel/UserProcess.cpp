@@ -13,7 +13,7 @@
 
 UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 pid, uint32 terminal_number) : 
         //holding_cow_(false),
-        alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), 
+        alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), retvals_lock_("UserProcess::retvals_lock_"),
         fd_(VfsSyscall::open(filename, O_RDONLY)), pid_(pid), filename_(filename), fs_info_(fs_info), 
         terminal_number_(terminal_number), parent_process_(0), child_processes_(), num_threads_(0)
         
@@ -37,7 +37,7 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
 }
 
 UserProcess::UserProcess(UserProcess &process, UserThread *thread) : //holding_cow_(true),
-         alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), 
+         alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), retvals_lock_("UserProcess::retvals_lock_"),
          fd_(process.getFd()),//fd_(VfsSyscall::open(process.getFilename().c_str(), O_RDONLY))
          pid_(ProcessRegistry::instance()->getNewPID()),
          filename_(process.getFilename()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
@@ -146,14 +146,17 @@ void UserProcess::setPID(size_t pid){
 
 Thread* UserProcess::getThread(size_t tid)
 {
+  threads_lock_.acquire();
   for (auto thread : threads_)
   {
     if (thread->getTID() == tid)
     {
+      threads_lock_.release();
       return thread;
     }
   }
 
+  threads_lock_.release();
   return NULL;
 }
 
@@ -251,19 +254,22 @@ size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void*
   Thread* thread = new UserThread(this, routine, args, entry_function);
   if(thread != NULL)
   {
-  addThread(thread);
+    addThread(thread);
 
-  Scheduler::instance()->addNewThread(thread);
-  *tid = thread->getTID();
-  return 0;
+    Scheduler::instance()->addNewThread(thread);
+    *tid = thread->getTID();
+
+    return 0;
   }
-  else{
+  else
+  {
     return -1;
   }
 }
 
 void UserProcess::mapRetVals(size_t tid, void* retval)
 {
-  // TODO: Add retvals lock
+  retvals_lock_.acquire();
   retvals_.insert(ustl::make_pair(tid, retval));
+  retvals_lock_.release();
 }

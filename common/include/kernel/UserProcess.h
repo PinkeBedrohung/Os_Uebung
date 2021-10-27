@@ -50,6 +50,7 @@ class UserProcess
     void mapRetVals(size_t tid, void* retval);
     Mutex alive_lock_;
     Mutex threads_lock_;
+    Mutex retvals_lock_;
 
   private:
     int32 fd_;

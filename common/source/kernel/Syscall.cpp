@@ -290,15 +290,17 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
     return (size_t)-1U;
   }
 
+  current_process->retvals_lock_.acquire();
   if(current_process->retvals_.find(thread) == current_process->retvals_.end())
   {
+    current_process->retvals_lock_.release();
 
     //TODO check if other thread in join chain of thread_to_join is waiting for our calling_thread to avoid join deadlock
     if(calling_thread->chainJoin((size_t)thread_to_join))
     {
       return (size_t) -1U;
     }
-
+  
     //current_process->threads_lock_.acquire();
     calling_thread->join_ = thread_to_join;
     current_process->alive_lock_.acquire();
@@ -306,6 +308,12 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
     thread_to_join->alive_cond_.waitAndRelease();
     calling_thread->join_ = NULL;
   }
+
+  if(current_process->retvals_lock_.isHeldBy(currentThread))
+  {
+    current_process->retvals_lock_.release();
+  }
+  
 
   if(value_ptr != NULL)
   {
