@@ -29,6 +29,8 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
     return;
   }
 
+  binary_fd_counter_ = new int32(1);
+
   addThread(new UserThread(this));
 }
 
@@ -55,6 +57,9 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread) : //holding_c
   cow_holding_ps->push_back(this);
   process.child_processes_.push_back(this);
   fork_lock_ = parent_process_->fork_lock_;
+
+  binary_fd_counter_ = process.binary_fd_counter_;
+  (*binary_fd_counter_)++;
 
   addThread(new_thread);
 }
@@ -115,8 +120,13 @@ UserProcess::~UserProcess()
   
   if (fd_ > 0)
   {
-    
-    //VfsSyscall::close(fd_);
+    (*binary_fd_counter_)--;
+
+    if(*binary_fd_counter_ == 0)
+    {
+      delete binary_fd_counter_;
+      VfsSyscall::close(fd_);
+    }
   }
   ProcessRegistry::instance()->releasePID(pid_);
   ProcessRegistry::instance()->processExit();

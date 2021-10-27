@@ -58,6 +58,8 @@ class UserProcess
     UserProcess* parent_process_;
     ustl::list<UserProcess*> child_processes_;
 
+    int32* binary_fd_counter_;
+
     Mutex threads_lock_;
     ThreadList threads_;
     size_t num_threads_;  
