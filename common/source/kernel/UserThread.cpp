@@ -14,17 +14,24 @@
 UserThread::UserThread(UserProcess* process) :
         Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD)
         , fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber())
+        , alive_cond_(&process->alive_lock_, "alive_cond_")
 {
+    setThreadID(Scheduler::instance()->getNewTID());
     loader_ = process_->getLoader();
     createThread(loader_->getEntryFunction());
+    join_ = NULL;
 }
 
 UserThread::UserThread(UserProcess* process, size_t* tid, void* (*routine)(void*), void* args, void* entry_function) :
         Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD)
         , fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber())
+        , alive_cond_(&process->alive_lock_, "alive_cond_")
 {
+    setThreadID(Scheduler::instance()->getNewTID());
     loader_ = process_->getLoader();
     createThread(entry_function);
+    join_ = NULL;
+
 
     *tid = this->getTID();
 
@@ -36,7 +43,7 @@ UserThread::UserThread(UserProcess* process, size_t* tid, void* (*routine)(void*
 void UserThread::createThread(void* entry_function)
 {
     size_t page_for_stack = PageManager::instance()->allocPPN();
-    page_offset_ = process_->created_threads_ + 1; //improve thread addresses 
+    page_offset_ = getTID();
 
     size_t stack_address = (size_t) (USER_BREAK - sizeof(pointer) - (PAGE_SIZE * page_offset_));
     
@@ -58,6 +65,7 @@ void UserThread::createThread(void* entry_function)
 UserThread::UserThread(UserThread &thread, UserProcess* process) : 
         Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD),
         fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber())
+        , alive_cond_(&process->alive_lock_, "alive_cond_")
 {
     loader_ = process->getLoader();
 
@@ -78,6 +86,9 @@ UserThread::~UserThread()
     assert(Scheduler::instance()->isCurrentlyCleaningUp());
 
     debug(USERTHREAD, "~UserThread - TID %zu\n", getTID());
+    process_->alive_lock_.acquire();
+    alive_cond_.broadcast();
+    process_->alive_lock_.release();
 
     process_->removeThread(this);
 
@@ -102,4 +113,19 @@ void UserThread::copyRegisters(UserThread* thread)
     memcpy(user_registers_, thread->user_registers_, sizeof(ArchThreadRegisters));
     //memcpy(&kernel_stack_[1], &thread->kernel_stack_[1], (sizeof(kernel_stack_)-2)/sizeof(uint32));
     //memcpy(kernel_registers_, thread->kernel_registers_, sizeof(ArchThreadRegisters));
+}
+
+bool UserThread::chainJoin(size_t thread)
+{
+    UserThread* joiner = (UserThread*) ((UserThread*)currentThread)->getProcess()->getThread(thread);
+    size_t caller = currentThread->getTID();
+
+    while(joiner != NULL)
+    {
+        if(joiner->getTID() == caller)
+            return true;
+
+        joiner = joiner->join_;
+    }
+    return false;
 }

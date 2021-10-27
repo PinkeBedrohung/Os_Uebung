@@ -13,11 +13,13 @@
 
 UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 pid, uint32 terminal_number) : 
         //holding_cow_(false),
+        alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), 
         fd_(VfsSyscall::open(filename, O_RDONLY)), pid_(pid), filename_(filename), fs_info_(fs_info), 
-        terminal_number_(terminal_number), parent_process_(0), child_processes_(), threads_lock_("UserProcess::threads_lock_"), num_threads_(0)
+        terminal_number_(terminal_number), parent_process_(0), child_processes_(), num_threads_(0)
+        
+
 {
   ProcessRegistry::instance()->processStart(); //should also be called if you fork a process
-  created_threads_ = 0;
    if (fd_ >= 0)
         loader_ = new Loader(fd_);
 
@@ -35,10 +37,11 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
 }
 
 UserProcess::UserProcess(UserProcess &process, UserThread *thread) : //holding_cow_(true),
-         fd_(process.getFd())//fd_(VfsSyscall::open(process.getFilename().c_str(), O_RDONLY))
-        , pid_(ProcessRegistry::instance()->getNewPID()),
+         alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), 
+         fd_(process.getFd()),//fd_(VfsSyscall::open(process.getFilename().c_str(), O_RDONLY))
+         pid_(ProcessRegistry::instance()->getNewPID()),
          filename_(process.getFilename()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
-         terminal_number_(process.getTerminalNumber()),parent_process_(&process), child_processes_(), threads_lock_("UserProcess::threads_lock_"), num_threads_(0)
+         terminal_number_(process.getTerminalNumber()),parent_process_(&process), child_processes_(), num_threads_(0)
 {
   ProcessRegistry::instance()->processStart();
 
@@ -141,6 +144,19 @@ void UserProcess::setPID(size_t pid){
   pid_ = pid;
 }
 
+Thread* UserProcess::getThread(size_t tid)
+{
+  for (auto thread : threads_)
+  {
+    if (thread->getTID() == tid)
+    {
+      return thread;
+    }
+  }
+
+  return NULL;
+}
+
 size_t UserProcess::getPID(){
   return pid_;
 }
@@ -171,7 +187,6 @@ void UserProcess::addThread(Thread *thread){
   threads_lock_.acquire();
   threads_.push_back(thread);
   num_threads_++;
-  created_threads_++;
   threads_lock_.release();
 
   //debug(USERPROCESS, "Added thread with TID %zu to process with PID %zu\n", thread->getTID(), getPID());
@@ -242,11 +257,6 @@ size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void*
 
 void UserProcess::mapRetVals(size_t tid, void* retval)
 {
-  for (auto it = threads_.begin(); it != threads_.end(); it++)
-  {
-    if(((UserThread*)it)->getTID() == tid)
-    {
-      retvals_.insert(ustl::make_pair(tid, retval));
-    }
-  }
+  // TODO: Add retvals lock
+  retvals_.insert(ustl::make_pair(tid, retval));
 }

@@ -26,6 +26,7 @@ class UserProcess
 
     int32 getFd();
     ThreadList* getThreads();
+    Thread* getThread(size_t tid);
     size_t getPID();
     void setPID(size_t pid);
     ustl::string getFilename();
@@ -44,10 +45,12 @@ class UserProcess
     static const size_t MAX_PID = 4194304;
     size_t createUserThread(size_t* tid, void* (*routine)(void*), void* args, void* entry_function);
 
-    size_t created_threads_;
     ustl::map<size_t, void*> retvals_;
 
     void mapRetVals(size_t tid, void* retval);
+    Mutex alive_lock_;
+    Mutex threads_lock_;
+
   private:
     int32 fd_;
     uint32 pid_;
@@ -60,7 +63,7 @@ class UserProcess
 
     int32* binary_fd_counter_;
 
-    Mutex threads_lock_;
+    
     ThreadList threads_;
     size_t num_threads_;  
 };
