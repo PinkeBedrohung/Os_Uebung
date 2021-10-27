@@ -28,7 +28,7 @@ Scheduler *Scheduler::instance()
   return instance_;
 }
 
-Scheduler::Scheduler() : list_lock_("Scheduler::list_lock_"), num_threads_lock_("Scheduler::num_threads_lock_"), num_threads_(0)
+Scheduler::Scheduler() : num_threads_lock_("Scheduler::num_threads_lock_"), num_threads_(0)
 {
   block_scheduling_ = 0;
   ticks_ = 0;
@@ -88,7 +88,6 @@ uint32 Scheduler::schedule()
 void Scheduler::addNewThread(Thread *thread)
 {
   assert(thread);
-  thread->setThreadID(getNewTID());
   debug(SCHEDULER, "addNewThread: %p  %zd:%s\n", thread, thread->getTID(), thread->getName());
   if (currentThread)
     ArchThreads::debugCheckNewThread(thread);
@@ -156,8 +155,6 @@ void Scheduler::cleanupDeadThreads()
   {
     for (uint32 i = 0; i < thread_count; ++i)
     {
-      releaseTID(destroy_list[i]->getTID());
-
       if (destroy_list[i]->getThreadType() == Thread::USER_THREAD)
       {
         debug(SCHEDULER, "Remove thread TID %zu from process PID %zu\n", destroy_list[i]->getTID(), ((UserThread *)destroy_list[i])->getProcess()->getPID());
@@ -257,68 +254,9 @@ void Scheduler::printLockingInformation()
 }
 
 size_t Scheduler::getNewTID(){
-  size_t new_tid = 0;
-
-  list_lock_.acquire();
-  // No released tid exists -> get a new tid from progs_running_
-  if (unused_tids_.size() == 0)
-  {
-    num_threads_lock_.acquire();
-    new_tid = ++num_threads_;
-    num_threads_lock_.release();
-
-    used_tids_.push_back(new_tid);
-    list_lock_.release();
-
-    debug(SCHEDULER, "Added new TID %zu to the used TID list\n", new_tid);
-    return new_tid;
-  }
-
-  // Read the first element in the unused_tids list and pop it
-  new_tid = unused_tids_.front();
-  unused_tids_.pop_front();
-  // Add the popped tid to the used_tids list
-  used_tids_.insert(used_tids_.end(), new_tid);
-  list_lock_.release();
-
-  debug(SCHEDULER, "Moved TID %zu from the unused to the used TID list\n", new_tid);
+  num_threads_lock_.acquire();
+  size_t new_tid = ++num_threads_;
+  num_threads_lock_.release();
+  debug(SCHEDULER, "Added a thread with new TID %zu \n", new_tid);
   return new_tid;
-}
-
-void Scheduler::releaseTID(size_t tid){
-  list_lock_.acquire();
-
-  // Find the tid in the used_tids via an iterator (element deletion)
-  auto itr = ustl::find(used_tids_.begin(), used_tids_.end(), tid);
-
-  // Checks if the tid is occuring in the used list / valid
-  assert(itr != used_tids_.end());
-
-  // Delete the tid from the used_tids list
-  used_tids_.erase(itr);
-  
-  // Insert the tid to the right tosition (ascending order)
-  if (unused_tids_.size() != 0){
-    for (auto itr = unused_tids_.begin(); itr != unused_tids_.end();itr++)
-    { 
-      if(tid > *itr)
-      {
-        unused_tids_.insert(itr+1, tid);
-        break;
-      }
-      else 
-      {
-        unused_tids_.insert(itr, tid);
-        break;
-      }
-    }
-  } 
-  else {
-    // First element in the list
-    unused_tids_.push_back(tid);
-  }
-
-  list_lock_.release();
-  
-  debug(SCHEDULER, "Released TID %zu from the used TID list\n", tid);
 }

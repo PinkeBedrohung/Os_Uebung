@@ -55,6 +55,9 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     case sc_pthread_exit:
       exitThread(arg1);
       break;
+    case sc_pthread_join:
+      joinThread(arg1, (void**)arg2);
+      break;
     case sc_clock:
       return_value = clock();
       break;
@@ -234,4 +237,44 @@ size_t Syscall::sleep(unsigned int seconds)
   currentThread->setState(USleep);
   Scheduler::instance()->yield();
   return 0;
+}
+
+size_t Syscall::joinThread(size_t thread, void** value_ptr)
+{
+  if(thread == NULL)
+  {
+    //debug(SYSCALL, "Thread to be joined is non-existent!\n");
+    return (size_t)-1U;
+  }
+
+  // TODO
+  // check if the thread was canceled and pass the PTHREAD_CANCELED to value_ptr
+
+  UserThread* calling_thread = ((UserThread*)currentThread);
+  UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
+  UserThread* thread_to_join = ((UserThread*)current_process->getThread(thread));
+
+  if(current_process->retvals_.find(thread) == current_process->retvals_.end())
+  {
+    current_process->threads_lock_.acquire();
+    calling_thread->join_ = thread_to_join;
+    current_process->alive_lock_.acquire();
+    current_process->threads_lock_.release();
+    thread_to_join->alive_cond_.waitAndRelease();
+    calling_thread->join_ = NULL;
+   }
+
+  if(value_ptr != NULL)
+  {
+    if((uint64)value_ptr <= USER_BREAK)
+    {
+      *value_ptr = current_process->retvals_.at(thread);
+    }
+    else
+    {
+      return (size_t) -1U;
+    }
+  }
+
+  return (size_t) 0;
 }

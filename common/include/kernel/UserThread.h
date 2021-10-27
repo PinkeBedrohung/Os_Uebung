@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Thread.h"
+#include "Condition.h"
 #include "UserProcess.h"
 
 class UserThread : public Thread
@@ -16,6 +17,8 @@ public:
     ~UserThread();
     virtual void Run(); // not used
     UserProcess *getProcess();
+    UserThread* join_;
+    Condition alive_cond_;
 
 private:
     void createThread(void* entry_function);

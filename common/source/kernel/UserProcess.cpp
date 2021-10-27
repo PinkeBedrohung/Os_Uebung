@@ -12,11 +12,12 @@
 #include "UserThread.h"
 
 UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 pid, uint32 terminal_number) : 
-        fd_(VfsSyscall::open(filename, O_RDONLY)), pid_(pid), filename_(filename), fs_info_(fs_info), 
-        terminal_number_(terminal_number), threads_lock_("UserProcess::threads_lock_"), num_threads_(0)
+        alive_lock_("UserProcess::alive_lock_"),
+        threads_lock_("UserProcess::threads_lock_"),
+        fd_(VfsSyscall::open(filename, O_RDONLY)), pid_(pid), filename_(filename), fs_info_(fs_info),
+        terminal_number_(terminal_number), num_threads_(0)
 {
   ProcessRegistry::instance()->processStart(); //should also be called if you fork a process
-  created_threads_ = 0;
    if (fd_ >= 0)
         loader_ = new Loader(fd_);
 
@@ -51,6 +52,19 @@ UserProcess::ThreadList* UserProcess::getThreads(){
   return &threads_;
 }
 
+Thread* UserProcess::getThread(size_t tid)
+{
+  for (auto thread : threads_)
+  {
+    if (thread->getTID() == tid)
+    {
+      return thread;
+    }
+  }
+
+  return NULL;
+}
+
 size_t UserProcess::getPID(){
   return pid_;
 }
@@ -81,7 +95,6 @@ void UserProcess::add_thread(Thread *thread) {
   threads_lock_.acquire();
   threads_.push_back(thread);
   num_threads_++;
-  created_threads_++;
   threads_lock_.release();
 
   debug(USERPROCESS, "Added thread with TID %zu to process with PID %zu\n", thread->getTID(), getPID());
@@ -120,11 +133,6 @@ size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void*
 
 void UserProcess::mapRetVals(size_t tid, void* retval)
 {
-  for (auto it = threads_.begin(); it != threads_.end(); it++)
-  {
-    if(((UserThread*)it)->getTID() == tid)
-    {
-      retvals_.insert(ustl::make_pair(tid, retval));
-    }
-  }
+  // TODO: Add retvals lock
+  retvals_.insert(ustl::make_pair(tid, retval));
 }
