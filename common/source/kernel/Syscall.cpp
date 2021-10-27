@@ -284,8 +284,6 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
   UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
   UserThread* thread_to_join = ((UserThread*)current_process->getThread(thread));
 
-  MutexLock lock(current_process->threads_lock_);
-
   if(thread == calling_thread->getTID())
   {
     //debug(SYSCALL, "Thread is calling join on itselt")
@@ -301,7 +299,7 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
       return (size_t) -1U;
     }
 
-    
+    //current_process->threads_lock_.acquire();
     calling_thread->join_ = thread_to_join;
     current_process->alive_lock_.acquire();
     //current_process->threads_lock_.release();
