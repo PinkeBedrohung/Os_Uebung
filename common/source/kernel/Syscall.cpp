@@ -268,11 +268,13 @@ size_t Syscall::sleep(unsigned int seconds)
 
 size_t Syscall::joinThread(size_t thread, void** value_ptr)
 {
+  
   if(thread == NULL)
   {
     //debug(SYSCALL, "Thread to be joined is non-existent!\n");
     return (size_t)-1U;
   }
+
 
   // TODO
   // check if the thread was canceled and pass the PTHREAD_CANCELED to value_ptr
@@ -281,6 +283,8 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
   UserThread* calling_thread = ((UserThread*)currentThread);
   UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
   UserThread* thread_to_join = ((UserThread*)current_process->getThread(thread));
+
+  MutexLock lock(current_process->threads_lock_);
 
   if(thread == calling_thread->getTID())
   {
@@ -297,10 +301,10 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
       return (size_t) -1U;
     }
 
-    current_process->threads_lock_.acquire();
+    
     calling_thread->join_ = thread_to_join;
     current_process->alive_lock_.acquire();
-    current_process->threads_lock_.release();
+    //current_process->threads_lock_.release();
     thread_to_join->alive_cond_.waitAndRelease();
     calling_thread->join_ = NULL;
   }
