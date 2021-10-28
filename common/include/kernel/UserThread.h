@@ -25,7 +25,8 @@ public:
     bool chainJoin(size_t thread);
     UserThread* join_;
     Condition alive_cond_;
-
+    bool to_cancel_;
+    Mutex cancel_lock_;
 private:
     void createThread(void* entry_function);
     size_t page_offset_;

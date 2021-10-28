@@ -252,17 +252,22 @@ size_t UserProcess::getNumThreads()
 size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void* args, void* entry_function)
 {
   Thread* thread = new UserThread(this, routine, args, entry_function);
+  threads_lock_.acquire();
   if(thread != NULL)
   {
+    threads_lock_.release();
     addThread(thread);
+    threads_lock_.acquire();
 
     Scheduler::instance()->addNewThread(thread);
     *tid = thread->getTID();
-
+    threads_lock_.release();
     return 0;
   }
   else
   {
+
+    threads_lock_.release();
     return -1;
   }
 }
@@ -272,4 +277,27 @@ void UserProcess::mapRetVals(size_t tid, void* retval)
   retvals_lock_.acquire();
   retvals_.insert(ustl::make_pair(tid, retval));
   retvals_lock_.release();
+}
+
+size_t UserProcess::cancelUserThread(size_t tid)
+{
+  threads_lock_.acquire();
+  for (auto it = threads_.begin(); it != threads_.end(); it++)
+  {
+    if ((*it)->getTID() == tid)
+    {
+      debug(USERTHREAD, "Canceling thread: %ld\n",(*it)->getTID());
+      
+      ((UserThread*)it)->to_cancel_ = true;
+      debug(USERTHREAD, "to_cancel_ set to: %d\n", (int)((UserThread*)it)->to_cancel_);
+
+      debug(USERTHREAD, "switch_to_usersp: %d, is_currentthread: %d \n", ((UserThread*)it)->switch_to_userspace_, (int)((*it)==currentThread));
+      if(((UserThread*)it)->switch_to_userspace_ && (*it) != currentThread)
+        (*it)->kill();
+      threads_lock_.release();
+      return 0;
+    }
+  }
+  threads_lock_.release();
+  return -1;
 }

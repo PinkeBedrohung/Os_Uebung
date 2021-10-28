@@ -28,5 +28,6 @@ class Syscall
   static size_t joinThread(size_t thread, void** value_ptr);
   static size_t clock();
   static size_t sleep(unsigned int seconds);
+  static size_t cancelThread(size_t tid);
 };
 

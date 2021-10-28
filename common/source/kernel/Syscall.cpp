@@ -15,7 +15,12 @@
 size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2, size_t arg3, size_t arg4, size_t arg5)
 {
   size_t return_value = 0;
-
+  debug(SYSCALL, "CurrentThread %ld to_cancel_: %d",((UserThread*)currentThread)->getTID(), (int)((UserThread*)currentThread)->to_cancel_);
+  if(((UserThread*)currentThread)->to_cancel_)
+  {
+    currentThread->kill();
+    return 0;
+  }
   if ((syscall_number != sc_sched_yield) && (syscall_number != sc_outline)) // no debug print because these might occur very often
   {
     debug(SYSCALL, "Syscall %zd called with arguments %zd(=%zx) %zd(=%zx) %zd(=%zx) %zd(=%zx) %zd(=%zx)\n",
@@ -53,6 +58,9 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
       break;
     case sc_pthread_create:
       return_value = createThread(arg1, arg2, arg3, arg4, arg5);
+      break;
+    case sc_pthread_cancel:
+      return_value = cancelThread(arg1);
       break;
     case sc_pthread_exit:
       exitThread(arg1);
@@ -324,4 +332,12 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
   }
 
   return (size_t) 0;
+}
+
+size_t Syscall::cancelThread(size_t tid)
+{
+  UserProcess* process = ((UserThread*)currentThread)->getProcess();
+  process->mapRetVals(tid, (void*) -1);
+  debug(SYSCALL, "Calling cancelUserThread on Thread: %ld\n", tid);
+  return process->cancelUserThread(tid);
 }

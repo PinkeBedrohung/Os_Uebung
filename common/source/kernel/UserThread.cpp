@@ -14,24 +14,25 @@
 UserThread::UserThread(UserProcess* process) :
         Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD)
         , fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber())
-        , alive_cond_(&process->alive_lock_, "alive_cond_")
+        , alive_cond_(&process->alive_lock_, "alive_cond_"), cancel_lock_("cancel_lock")
 {
     setThreadID(Scheduler::instance()->getNewTID());
     loader_ = process_->getLoader();
     createThread(loader_->getEntryFunction());
     join_ = NULL;
+    to_cancel_ = false;
 }
 
 UserThread::UserThread(UserProcess* process,  void* (*routine)(void*), void* args, void* entry_function) :
         Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD)
         , fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber())
-        , alive_cond_(&process->alive_lock_, "alive_cond_")
+        , alive_cond_(&process->alive_lock_, "alive_cond_"), cancel_lock_("cancel_lock")
 {
     setThreadID(Scheduler::instance()->getNewTID());
     loader_ = process_->getLoader();
     createThread(entry_function);
     join_ = NULL;
-
+    to_cancel_ = false;
 
     debug(USERTHREAD, "ATTENTION: Not first Thread\n, setting rdi:%zu , and rsi:%zu\n", (size_t)routine,(size_t)args);
     ArchThreads::atomic_set(this->user_registers_->rdi, (size_t)routine);
@@ -63,10 +64,11 @@ void UserThread::createThread(void* entry_function)
 UserThread::UserThread(UserThread &thread, UserProcess* process) : 
         Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD),
         fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber())
-        , alive_cond_(&process->alive_lock_, "alive_cond_")
+        , alive_cond_(&process->alive_lock_, "alive_cond_"), cancel_lock_("cancel_lock")
 {
     loader_ = process->getLoader();
 
+    to_cancel_ = false;
     ArchThreads::createUserRegisters(user_registers_, loader_->getEntryFunction(),
                                         (void*) (USER_BREAK - sizeof(pointer)),
                                         getKernelStackStartPointer());   
@@ -127,3 +129,4 @@ bool UserThread::chainJoin(size_t thread)
     }
     return false;
 }
+
