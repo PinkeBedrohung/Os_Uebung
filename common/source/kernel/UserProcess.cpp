@@ -252,12 +252,11 @@ size_t UserProcess::getNumThreads()
 size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void* args, void* entry_function)
 {
   Thread* thread = new UserThread(this, routine, args, entry_function);
- 
+  threads_lock_.acquire();
   if(thread != NULL)
   {
-    
-    addThread(thread);
-    threads_lock_.acquire();
+    threads_.push_back(thread);
+    num_threads_++;
 
     Scheduler::instance()->addNewThread(thread);
     *tid = thread->getTID();
