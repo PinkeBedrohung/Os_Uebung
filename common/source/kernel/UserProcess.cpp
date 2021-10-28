@@ -252,10 +252,10 @@ size_t UserProcess::getNumThreads()
 size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void* args, void* entry_function)
 {
   Thread* thread = new UserThread(this, routine, args, entry_function);
-  threads_lock_.acquire();
+ 
   if(thread != NULL)
   {
-    threads_lock_.release();
+    
     addThread(thread);
     threads_lock_.acquire();
 
