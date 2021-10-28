@@ -186,22 +186,10 @@ void UserProcess::removeThread(Thread *thread){
 
 uint64 UserProcess::copyPages()
 {
-  //ArchMemoryMapping d = currentThread->loader_->arch_memory_.resolveMapping(currentThread->kernel_registers_->rsp / PAGE_SIZE);
-  //debug(USERPROCESS, "accesscounter: %zu\n", d.pml4->access_ctr);
   uint64 pml4 = ArchMemory::copyPagingStructure(loader_->arch_memory_.page_map_level_4_);
-  //debug(USERPROCESS, "pml4: %zu or_pml4: %zu\n", pml4, loader_->arch_memory_.page_map_level_4_);
-  //ArchMemoryMapping m = currentThread->loader_->arch_memory_.resolveMapping(currentThread->kernel_registers_->rsp / PAGE_SIZE);
-  //debug(USERPROCESS, "accesscounter: %zu\n", m.pml4->access_ctr);
-  //ArchThreads::printThreadRegisters(currentThread);
   loader_->arch_memory_.page_map_level_4_ = pml4;
 
-  //ArchMemoryMapping m = currentThread->loader_->arch_memory_.resolveMapping(currentThread->kernel_registers_->rsp / PAGE_SIZE);
-  //debug(USERPROCESS, "mapping: %zu\n", m.pml4_ppn);
-  //debug(USERPROCESS, "TID: %zu\n", currentThread->getTID());
-  //currentThread->kernel_registers_->cr3 = loader_->arch_memory_.page_map_level_4_ * PAGE_SIZE;
-  //ArchThreads::atomic_set(currentThread->user_registers_->cr3, loader_->arch_memory_.page_map_level_4_ * PAGE_SIZE);
   ArchThreads::setAddressSpace(currentThread, loader_->arch_memory_);
-  //ArchThreads::printThreadRegisters(currentThread);
   debug(USERPROCESS, "Copied pages and updated CR3 registers\n");
 
   cow_holding_ps->remove(this);
@@ -214,6 +202,23 @@ uint64 UserProcess::copyPages()
   }
   
   return pml4;
+}
+
+void UserProcess::cancelNonCurrentThreads(Thread *thread)
+{
+  assert(thread);
+
+  threads_lock_.acquire();
+  for (auto it = threads_.begin(); it != threads_.end(); it++)
+  {
+     debug(USERPROCESS, "You came to the wrong house fool \n");
+    if ((*it)->getTID() != thread->getTID())
+    {
+      (*it)->kill();
+      debug(USERPROCESS, "Removed TID %zu from Threadlist of PID %zu - %zu still assigned to the process\n", thread->getTID(), getPID(), getNumThreads());
+    }
+  }
+  threads_lock_.release();
 }
 
 size_t UserProcess::getNumThreads()
@@ -239,4 +244,46 @@ void UserProcess::mapRetVals(size_t tid, void* retval)
       retvals_.insert(ustl::make_pair(tid, retval));
     }
   }
+}
+
+int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
+{
+  cancelNonCurrentThreads(currentThread);
+
+
+
+  while(num_threads_ != 1)
+  {Scheduler::instance()->yield();}
+
+  if ((unsigned long long int)*path >= USER_BREAK)
+    {
+      return -1;
+    }
+
+  //TODO: Old fd deleting has to be handled  
+  filename_ = ustl::string(path);
+  int32_t fd = VfsSyscall::open(filename_.c_str(), O_RDONLY); 
+  Loader* loader = new Loader(fd);
+  loader->loadExecutableAndInitProcess();
+
+  ArchThreads::printThreadRegisters(currentThread);
+  ((UserThread*)currentThread)->allocatePage(arg,loader,fd);
+  
+
+  ArchThreads::setAddressSpace(currentThread, loader->arch_memory_);
+ 
+  ArchThreads::printThreadRegisters(currentThread);
+  
+  Loader* old_loader = loader_;
+  ssize_t old_fd = fd_;
+
+  fd_=fd;
+  loader_ = loader;
+  
+  
+  //ArchThreads::setAddressSpace(currentThread, loader_->arch_memory_);
+  VfsSyscall::close(old_fd);
+  delete old_loader;
+  Scheduler::instance()->yield();
+  return 0;
 }

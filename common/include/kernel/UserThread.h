@@ -20,7 +20,7 @@ public:
     virtual void Run(); // not used
     UserProcess *getProcess();
     void copyRegisters(UserThread *thread);
-    
+    void allocatePage(char const *arg[],Loader* loader,int32_t fd);
 
 private:
     void createThread(void* entry_function);

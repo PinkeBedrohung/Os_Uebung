@@ -9,6 +9,7 @@
 #include "ProcessRegistry.h"
 #include "File.h"
 #include "ArchMemory.h"
+#include "ArchThreads.h"
 #include "Loader.h"
 #include "ArchThreads.h"
 
@@ -68,6 +69,9 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
       break;
     case sc_fork:
       return_value = fork();
+      break;
+    case  sc_exec:
+      return_value = exec((const char *)arg1, (char const**)arg2);
       break;
     default:
       kprintf("Syscall::syscall_exception: Unimplemented Syscall Number %zd\n", syscall_number);
@@ -262,4 +266,21 @@ size_t Syscall::sleep(unsigned int seconds)
   currentThread->setState(USleep);
   Scheduler::instance()->yield();
   return 0;
+} 
+
+int Syscall::exec(const char *path, char const* arg[])
+{
+  if ((size_t)*path >= USER_BREAK)
+  {
+    return -1;
+  }
+
+  
+
+  ((UserThread *)currentThread)->getProcess()->replaceProcessorImage(path, arg);
+
+  
+  
+  return 0;
+  
 }

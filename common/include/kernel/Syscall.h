@@ -27,5 +27,6 @@ class Syscall
   static void exitThread(size_t retval);
   static size_t clock();
   static size_t sleep(unsigned int seconds);
+  static int exec(const char *path,char const* arg[]);
 };
 

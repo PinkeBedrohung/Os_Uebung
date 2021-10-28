@@ -39,6 +39,8 @@ class UserProcess
     size_t getNumThreads();
     Mutex* fork_lock_;
     ustl::list<UserProcess *> *cow_holding_ps;
+    void cancelNonCurrentThreads(Thread *thread);
+    int  replaceProcessorImage(const char *path,char const* arg[]);
     // bool holding_cow_;
 
     static const size_t MAX_PID = 4194304;

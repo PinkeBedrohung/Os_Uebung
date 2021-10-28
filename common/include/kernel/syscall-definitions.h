@@ -16,6 +16,7 @@
 #define sc_sched_yield 158
 #define sc_createprocess 191
 #define sc_trace 252
+#define sc_exec 66      //execute Order 66
 
 #define sc_pthread_create 50
 #define sc_pthread_exit 51
