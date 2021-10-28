@@ -293,8 +293,11 @@ size_t UserProcess::cancelUserThread(size_t tid)
 
       debug(USERTHREAD, "switch_to_usersp: %d, is_currentthread: %d \n", ((UserThread*)it)->switch_to_userspace_, (int)((*it)==currentThread));
       if(((UserThread*)it)->switch_to_userspace_ && (*it) != currentThread)
+      {
+          threads_lock_.release();
         (*it)->kill();
-      threads_lock_.release();
+      }
+      else threads_lock_.release();
       return 0;
     }
   }
