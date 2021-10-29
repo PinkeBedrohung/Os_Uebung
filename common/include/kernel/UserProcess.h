@@ -20,7 +20,7 @@ class UserProcess
      *
      */
     UserProcess(ustl::string minixfs_filename, FileSystemInfo *fs_info, uint32 pid, uint32 terminal_number = 0);
-    UserProcess(UserProcess &process, UserThread *thread = NULL);
+    UserProcess(UserProcess &process, UserThread *thread, int* retval);
 
     virtual ~UserProcess();
 

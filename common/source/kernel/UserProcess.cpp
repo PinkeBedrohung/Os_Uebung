@@ -26,8 +26,7 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
   if (!loader_ || !loader_->loadExecutableAndInitProcess())
   {
     debug(USERPROCESS, "Error: loading %s failed!\n", filename.c_str());
-    ProcessRegistry::instance()->processExit();
-    ProcessRegistry::instance()->releasePID(pid);
+    delete this;
     return;
   }
 
@@ -36,16 +35,25 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
   addThread(new UserThread(this));
 }
 
-UserProcess::UserProcess(UserProcess &process, UserThread *thread) : //holding_cow_(true),
+UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) : //holding_cow_(true),
          alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), retvals_lock_("UserProcess::retvals_lock_"),
          fd_(process.getFd()),//fd_(VfsSyscall::open(process.getFilename().c_str(), O_RDONLY))
          pid_(ProcessRegistry::instance()->getNewPID()),
          filename_(process.getFilename()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
-         terminal_number_(process.getTerminalNumber()),parent_process_(&process), child_processes_(), num_threads_(0)
+         terminal_number_(process.getTerminalNumber()), parent_process_(&process), child_processes_(), num_threads_(0)
 {
   ProcessRegistry::instance()->processStart();
 
-  loader_ = new Loader(*process.getLoader(), fd_);
+  if(process.getLoader() && fd_ >= 0)
+  {
+    loader_ = new Loader(*process.getLoader(), fd_, retval);
+  }
+  else
+  {
+    *retval = -1;
+    debug(USERPROCESS, "Error while trying to copy loader\n");
+    return;
+  }
 
   debug(USERPROCESS, "Loader copy done\n");
 
@@ -81,9 +89,14 @@ UserProcess::~UserProcess()
 
       last_fork_lock_holder = true;
       cow_holding_ps->remove(this);
-      cow_holding_ps->front()->cow_holding_ps = nullptr;
-      cow_holding_ps->front()->fork_lock_ = nullptr;
-      delete cow_holding_ps;
+
+      if (!fork_lock_->hasNextOnHoldingList())
+      {
+        cow_holding_ps->front()->cow_holding_ps = nullptr;
+        cow_holding_ps->front()->fork_lock_ = nullptr;
+        delete cow_holding_ps;
+      }
+      
       cow_holding_ps = nullptr;
       
     }
@@ -91,6 +104,7 @@ UserProcess::~UserProcess()
     {
       ArchMemory::writeable(loader_->arch_memory_.page_map_level_4_, -1, Decrement);
       cow_holding_ps->remove(this);
+      cow_holding_ps = nullptr;
     }
     
     fork_lock_->release();
@@ -235,8 +249,8 @@ uint64 UserProcess::copyPages()
   cow_holding_ps->remove(this);
   if(cow_holding_ps->size() == 1)
   {
-    cow_holding_ps->front()->cow_holding_ps = nullptr;
     cow_holding_ps->front()->fork_lock_ = nullptr;
+    cow_holding_ps->front()->cow_holding_ps = nullptr;
     delete cow_holding_ps;
     cow_holding_ps = nullptr;
   }

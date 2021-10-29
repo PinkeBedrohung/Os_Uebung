@@ -15,7 +15,7 @@
 size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2, size_t arg3, size_t arg4, size_t arg5)
 {
   size_t return_value = 0;
-  debug(SYSCALL, "CurrentThread %ld to_cancel_: %d",((UserThread*)currentThread)->getTID(), (int)((UserThread*)currentThread)->to_cancel_);
+  debug(SYSCALL, "CurrentThread %ld to_cancel_: %d\n",((UserThread*)currentThread)->getTID(), (int)((UserThread*)currentThread)->to_cancel_);
   if(((UserThread*)currentThread)->to_cancel_)
   {
     currentThread->kill();
@@ -209,16 +209,47 @@ size_t Syscall::fork()
   
   if(!((UserThread*)currentThread)->getProcess()->fork_lock_)
   {
-    ((UserThread *)currentThread)->getProcess()->fork_lock_ = new Mutex("UserProcess::cow_lock_");
+    ((UserThread *)currentThread)->getProcess()->fork_lock_ = new Mutex("UserProcess::fork_lock_");
   }  
-    
+  
 
   MutexLock lock(*((UserThread *)currentThread)->getProcess()->fork_lock_);
-  ((UserThread *)currentThread)->getProcess()->cow_holding_ps->push_back(((UserThread *)currentThread)->getProcess());
+
+  bool present = false;
+  for (auto it = ((UserThread *)currentThread)->getProcess()->cow_holding_ps->begin(); it != ((UserThread *)currentThread)->getProcess()->cow_holding_ps->end(); it++)
+  {
+    if (*it == ((UserThread *)currentThread)->getProcess())
+    {
+      present = true;
+      break;
+    }
+  }
   
+  if (!present)
+    ((UserThread *)currentThread)->getProcess()->cow_holding_ps->push_back(((UserThread *)currentThread)->getProcess());
+
   ArchMemory::writeable(((UserThread *)currentThread)->getProcess()->getLoader()->arch_memory_.page_map_level_4_, 0);
 
-  UserProcess *new_process = new UserProcess(*((UserThread *)currentThread)->getProcess(), (UserThread*)currentThread);
+  int retval = 0;
+  UserProcess *new_process = new UserProcess(*((UserThread *)currentThread)->getProcess(), (UserThread *)currentThread, &retval);
+  
+  if (retval != 0)
+  {
+    debug(SYSCALL, "Error in creating a forked process of PID %zu\n", ((UserThread *)currentThread)->getProcess()->getPID());
+    if (new_process)
+    {
+      delete new_process;
+    }
+    ArchMemory::writeable(((UserThread *)currentThread)->getProcess()->getLoader()->arch_memory_.page_map_level_4_, 1, Decrement);
+    if(((UserThread *)currentThread)->getProcess()->cow_holding_ps->size() == 1)
+    {
+      delete ((UserThread *)currentThread)->getProcess()->cow_holding_ps;
+      lock.~MutexLock();
+      delete ((UserThread *)currentThread)->getProcess()->fork_lock_;
+    }
+    return -1;
+  }
+
   ProcessRegistry::instance()->createProcess(new_process);
 
   return new_process->getPID();

@@ -25,7 +25,7 @@ int main()
     pthread_t thread[4];
 
     int ret = 0;
-    for (size_t i = 0; i < 10; i++)
+    for (size_t i = 0; i < 5; i++)
     {
         ret = fork();
 
