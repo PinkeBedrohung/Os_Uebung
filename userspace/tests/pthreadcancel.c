@@ -1,6 +1,5 @@
 #include "pthread.h"
 #include "stdio.h"
-#include "assert.h"
 
 void* CanceledThread()
 {
@@ -15,7 +14,7 @@ int main()
     pthread_t cancd_thread;
 
     pthread_create(&cancd_thread, 0x0, &CanceledThread, 0x0);
-    for(int i = 0; i < 99999999; i++)
+    for(int i = 0; i < 99999998; i++)
     {
 
     }
