@@ -32,8 +32,9 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
   }
 
   binary_fd_counter_ = new int32(1);
-
-  addThread(new UserThread(this));
+  UserThread *new_thread = new UserThread(this);
+  new_thread->first_thread_ = true;
+  addThread(new_thread);
 }
 
 UserProcess::UserProcess(UserProcess &process, UserThread *thread) : //holding_cow_(true),
@@ -50,6 +51,7 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread) : //holding_c
   debug(USERPROCESS, "Loader copy done\n");
 
   UserThread *new_thread = new UserThread(*thread, this);
+  new_thread->first_thread_ = true;
   
   new_thread->user_registers_->rsp0 = (size_t)new_thread->getKernelStackStartPointer();
   new_thread->user_registers_->rax = 0;

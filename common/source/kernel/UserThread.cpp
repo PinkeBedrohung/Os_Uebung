@@ -21,6 +21,7 @@ UserThread::UserThread(UserProcess* process) :
     createThread(loader_->getEntryFunction());
     join_ = NULL;
     to_cancel_ = false;
+    first_thread_ = false;
 }
 
 UserThread::UserThread(UserProcess* process,  void* (*routine)(void*), void* args, void* entry_function) :
@@ -92,7 +93,8 @@ UserThread::~UserThread()
 
     process_->removeThread(this);
 
-    // TODO: Unmap the mapped pages
+    if (process_->getLoader() != nullptr && !first_thread_)
+        loader_->arch_memory_.unmapPage(USER_BREAK / PAGE_SIZE - page_offset_ - 1);
 
     if (process_->getNumThreads() == 0)
         delete process_;

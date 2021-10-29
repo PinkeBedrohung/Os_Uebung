@@ -66,7 +66,7 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
       exitThread(arg1);
       break;
     case sc_pthread_join:
-      joinThread(arg1, (void**)arg2);
+      return_value = joinThread(arg1, (void**)arg2);
       break;
     case sc_clock:
       return_value = clock();
@@ -304,7 +304,7 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
     current_process->retvals_lock_.release();
 
     //TODO check if other thread in join chain of thread_to_join is waiting for our calling_thread to avoid join deadlock
-    if(calling_thread->chainJoin((size_t)thread_to_join))
+    if(calling_thread->chainJoin(thread_to_join->getTID()))
     {
       return (size_t) -1U;
     }
@@ -325,7 +325,8 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
 
   if(value_ptr != NULL)
   {
-    if((uint64)value_ptr <= USER_BREAK)
+    if((uint64)value_ptr <= USER_BREAK && 
+       current_process->retvals_.find(thread) != current_process->retvals_.end())
       *value_ptr = current_process->retvals_.at(thread);
     else
       return (size_t) -1U;
