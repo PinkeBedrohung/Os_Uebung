@@ -32,8 +32,9 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
   }
 
   binary_fd_counter_ = new int32(1);
-
-  addThread(new UserThread(this));
+  UserThread *new_thread = new UserThread(this);
+  new_thread->first_thread_ = true;
+  addThread(new_thread);
 }
 
 UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) : //holding_cow_(true),
@@ -56,6 +57,8 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
     debug(USERPROCESS, "Error while trying to copy loader\n");
     return;
   }
+  cpu_start_rdtsc = ArchThreads::rdtsc();
+  //loader_ = new Loader(*process.getLoader(), fd_);
 
   debug(USERPROCESS, "Loader copy done\n");
 

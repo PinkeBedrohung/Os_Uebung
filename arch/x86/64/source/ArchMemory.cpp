@@ -56,8 +56,15 @@ bool ArchMemory::unmapPage(uint64 virtual_page)
   ArchMemoryMapping m = resolveMapping(virtual_page);
 
   assert(m.page_ppn != 0 && m.page_size == PAGE_SIZE && m.pt[m.pti].present);
+  MutexLock lock(access_lock);
   m.pt[m.pti].present = 0;
-  PageManager::instance()->freePPN(m.page_ppn);
+
+  if(access_counter[m.pt[m.pti].page_ppn] != 0)
+    access_counter[m.pt[m.pti].page_ppn]--;
+
+  if(access_counter[m.pt[m.pti].page_ppn] == 0)
+    PageManager::instance()->freePPN(m.page_ppn);
+    
   ((uint64*)m.pt)[m.pti] = 0; // for easier debugging
   bool empty = checkAndRemove<PageTableEntry>(getIdentAddressOfPPN(m.pt_ppn), m.pti);
   if (empty)

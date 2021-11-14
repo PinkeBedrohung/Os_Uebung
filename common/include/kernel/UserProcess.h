@@ -46,7 +46,7 @@ class UserProcess
     size_t createUserThread(size_t* tid, void* (*routine)(void*), void* args, void* entry_function);
     size_t cancelUserThread(size_t tid);
     ustl::map<size_t, void*> retvals_;
-
+    unsigned long long cpu_start_rdtsc = 0;
     void mapRetVals(size_t tid, void* retval);
     Mutex alive_lock_;
     Mutex threads_lock_;

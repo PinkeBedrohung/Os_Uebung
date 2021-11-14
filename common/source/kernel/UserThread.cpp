@@ -21,6 +21,7 @@ UserThread::UserThread(UserProcess* process) :
     createThread(loader_->getEntryFunction());
     join_ = NULL;
     to_cancel_ = false;
+    first_thread_ = false;
 }
 
 UserThread::UserThread(UserProcess* process,  void* (*routine)(void*), void* args, void* entry_function) :
@@ -42,7 +43,7 @@ UserThread::UserThread(UserProcess* process,  void* (*routine)(void*), void* arg
 void UserThread::createThread(void* entry_function)
 {
     size_t page_for_stack = PageManager::instance()->allocPPN();
-    page_offset_ = getTID();
+    page_offset_ = getTID() + 1; //guard pages
 
     size_t stack_address = (size_t) (USER_BREAK - sizeof(pointer) - (PAGE_SIZE * page_offset_));
     
@@ -53,7 +54,7 @@ void UserThread::createThread(void* entry_function)
     ArchThreads::setAddressSpace(this, loader_->arch_memory_);
     
     debug(USERTHREAD, "ctor: Done loading %s\n", name_.c_str());
-    cpu_start_rdtsc = ArchThreads::rdtsc();
+    
     if (main_console->getTerminal(terminal_number_))
         setTerminal(main_console->getTerminal(terminal_number_));
 
@@ -75,7 +76,8 @@ UserThread::UserThread(UserThread &thread, UserProcess* process) :
     
     if (main_console->getTerminal(terminal_number_))
         setTerminal(main_console->getTerminal(terminal_number_));
-    
+
+    page_offset_ = thread.page_offset_;
     copyRegisters(&thread);
     ArchThreads::setAddressSpace(this, loader_->arch_memory_);
     switch_to_userspace_ = 1;
@@ -92,7 +94,8 @@ UserThread::~UserThread()
 
     process_->removeThread(this);
 
-    // TODO: Unmap the mapped pages
+    if (process_->getLoader() != nullptr && !first_thread_)
+        loader_->arch_memory_.unmapPage(USER_BREAK / PAGE_SIZE - page_offset_ - 1);
 
     if (process_->getNumThreads() == 0)
         delete process_;
