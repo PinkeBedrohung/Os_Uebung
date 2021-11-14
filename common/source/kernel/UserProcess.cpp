@@ -45,13 +45,13 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread) : //holding_c
          terminal_number_(process.getTerminalNumber()),parent_process_(&process), child_processes_(), num_threads_(0)
 {
   ProcessRegistry::instance()->processStart();
-
+  cpu_start_rdtsc = ArchThreads::rdtsc();
   loader_ = new Loader(*process.getLoader(), fd_);
 
   debug(USERPROCESS, "Loader copy done\n");
 
   UserThread *new_thread = new UserThread(*thread, this);
-  cpu_start_rdtsc = ArchThreads::rdtsc();
+  
   new_thread->user_registers_->rsp0 = (size_t)new_thread->getKernelStackStartPointer();
   new_thread->user_registers_->rax = 0;
 
