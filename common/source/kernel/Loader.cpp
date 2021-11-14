@@ -305,6 +305,19 @@ bool Loader::prepareHeaders()
   return phdrs_.size() > 0;
 }
 
+void Loader::printLoader()
+{
+debug(LOADER,"fd_ = %zu \n",fd_);
+size_t i = 0;
+for (const auto &phdr : phdrs_)
+  {
+    debug(LOADER,"phdr%zu == %p \n",i,&phdr);
+  i++;
+  }
+debug(LOADER,"hdr = %p \n", hdr_);
+
+}
+
 Loader::Loader(Loader &loader, size_t fd) : arch_memory_(loader.arch_memory_), fd_(fd), program_binary_lock_("Loader::program_binary_lock_"), userspace_debug_info_(0)
 {
   hdr_ = new Elf::Ehdr;

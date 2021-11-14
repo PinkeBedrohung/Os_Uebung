@@ -36,7 +36,7 @@ class Loader
     void* getEntryFunction() const;
 
     ArchMemory arch_memory_;
-
+    void printLoader();
   private:
 
     /**
