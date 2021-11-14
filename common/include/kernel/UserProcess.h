@@ -38,8 +38,8 @@ class UserProcess
     void removeThread(Thread *thread);
     uint64 copyPages();
     size_t getNumThreads();
-    Mutex* fork_lock_;
-    ustl::list<UserProcess *> *cow_holding_ps;
+    //Mutex* fork_lock_;
+    //ustl::list<UserProcess *> *cow_holding_ps;
     // bool holding_cow_;
 
     static const size_t MAX_PID = 4194304;

@@ -15,7 +15,8 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
         //holding_cow_(false),
         alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), retvals_lock_("UserProcess::retvals_lock_"),
         fd_(VfsSyscall::open(filename, O_RDONLY)), pid_(pid), filename_(filename), fs_info_(fs_info), 
-        terminal_number_(terminal_number), parent_process_(0), child_processes_(), num_threads_(0)
+        terminal_number_(terminal_number)//, parent_process_(0), child_processes_()
+        , num_threads_(0)
         
 
 {
@@ -40,7 +41,8 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
          fd_(process.getFd()),//fd_(VfsSyscall::open(process.getFilename().c_str(), O_RDONLY))
          pid_(ProcessRegistry::instance()->getNewPID()),
          filename_(process.getFilename()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
-         terminal_number_(process.getTerminalNumber()), parent_process_(&process), child_processes_(), num_threads_(0)
+         terminal_number_(process.getTerminalNumber())//, parent_process_(&process), child_processes_()
+         , num_threads_(0)
 {
   ProcessRegistry::instance()->processStart();
 
@@ -64,10 +66,10 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
 
   //ArchThreads::printThreadRegisters(thread);
   //ArchThreads::printThreadRegisters(new_thread);
-  cow_holding_ps = process.cow_holding_ps;
+  /*cow_holding_ps = process.cow_holding_ps;
   cow_holding_ps->push_back(this);
   process.child_processes_.push_back(this);
-  fork_lock_ = parent_process_->fork_lock_;
+  fork_lock_ = parent_process_->fork_lock_;*/
 
   binary_fd_counter_ = process.binary_fd_counter_;
   (*binary_fd_counter_)++;
@@ -78,7 +80,7 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
 UserProcess::~UserProcess()
 {
   debug(USERPROCESS, "~UserProcess - PID %zu\n", getPID());
-
+  /*
   bool last_fork_lock_holder = false;
   if (fork_lock_)
   {
@@ -108,6 +110,7 @@ UserProcess::~UserProcess()
     }
     
     fork_lock_->release();
+    
   }
 
   if(last_fork_lock_holder && !fork_lock_->heldBy())
@@ -131,10 +134,13 @@ UserProcess::~UserProcess()
     {
       child_process->parent_process_ = parent_process_;
     }
-  
+  */
   delete loader_;
   loader_ = 0;
-  
+
+  delete fs_info_;
+  fs_info_ = 0;
+
   if (fd_ > 0)
   {
     (*binary_fd_counter_)--;
@@ -230,6 +236,15 @@ uint64 UserProcess::copyPages()
 {
   //ArchMemoryMapping d = currentThread->loader_->arch_memory_.resolveMapping(currentThread->kernel_registers_->rsp / PAGE_SIZE);
   //debug(USERPROCESS, "accesscounter: %zu\n", d.pml4->access_ctr);
+  /*
+  fork_lock_->acquire();
+  if (!cow_holding_ps)
+  {
+    fork_lock_->release();
+    return 0;
+  }
+  */
+
   uint64 pml4 = ArchMemory::copyPagingStructure(loader_->arch_memory_.page_map_level_4_);
   //debug(USERPROCESS, "pml4: %zu or_pml4: %zu\n", pml4, loader_->arch_memory_.page_map_level_4_);
   //ArchMemoryMapping m = currentThread->loader_->arch_memory_.resolveMapping(currentThread->kernel_registers_->rsp / PAGE_SIZE);
@@ -242,20 +257,24 @@ uint64 UserProcess::copyPages()
   //debug(USERPROCESS, "TID: %zu\n", currentThread->getTID());
   //currentThread->kernel_registers_->cr3 = loader_->arch_memory_.page_map_level_4_ * PAGE_SIZE;
   //ArchThreads::atomic_set(currentThread->user_registers_->cr3, loader_->arch_memory_.page_map_level_4_ * PAGE_SIZE);
+  
+
   ArchThreads::setAddressSpace(currentThread, loader_->arch_memory_);
+  
   //ArchThreads::printThreadRegisters(currentThread);
   debug(USERPROCESS, "Copied pages and updated CR3 registers\n");
-
+  /*
   cow_holding_ps->remove(this);
   if(cow_holding_ps->size() == 1)
   {
-    cow_holding_ps->front()->fork_lock_ = nullptr;
     cow_holding_ps->front()->cow_holding_ps = nullptr;
     delete cow_holding_ps;
     cow_holding_ps = nullptr;
   }
-  
+  fork_lock_->release();
   return pml4;
+  */
+  return 0;
 }
 
 size_t UserProcess::getNumThreads()

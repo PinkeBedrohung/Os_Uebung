@@ -34,20 +34,19 @@ inline bool PageFaultHandler::checkPageFaultIsValid(size_t address, bool user,
   else if(present)
   {
     debug(PAGEFAULT, "You got a pagefault even though the address is mapped.\n");
-    
-    if(currentThread->getThreadType() == Thread::USER_THREAD)
+    /*
+    if(currentThread->getThreadType() == Thread::USER_THREAD && ((UserThread *)currentThread)->getProcess()->fork_lock_)
     {
-      ((UserThread *)currentThread)->getProcess()->fork_lock_->acquire();
-      
-      if (!((UserThread *)currentThread)->getProcess()->cow_holding_ps)
-      {
-        return true;
-      }
-
       ((UserThread *)currentThread)->getProcess()->copyPages();
       return true;
+    }*/
+    if(currentThread->getThreadType() == Thread::USER_THREAD)
+    {
+      debug(PAGEFAULT, "Copy Page\n");
+      
+      ArchMemory::copyPage(currentThread->loader_->arch_memory_.page_map_level_4_, address);
+      return true;
     }
-    
   }
   else
   {
@@ -76,16 +75,12 @@ inline void PageFaultHandler::handlePageFault(size_t address, bool user,
 
   if (checkPageFaultIsValid(address, user, present, switch_to_us))
   {
-    if(present && currentThread->getThreadType() == Thread::USER_THREAD && ((UserThread *)currentThread)->getProcess()->fork_lock_->isHeldBy(currentThread))
+    
+    if(present && currentThread->getThreadType() == Thread::USER_THREAD)
     {
-      ((UserThread *)currentThread)->getProcess()->fork_lock_->release();
-      if (!((UserThread *)currentThread)->getProcess()->cow_holding_ps)
-      {
-        ((UserThread *)currentThread)->getProcess()->fork_lock_ = nullptr;
-      }
-      
       return;
     }
+    
     currentThread->loader_->loadPage(address);
   }
   else

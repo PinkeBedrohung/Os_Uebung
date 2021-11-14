@@ -202,18 +202,19 @@ void Syscall::trace()
 
 size_t Syscall::fork()
 {
+  /*
+  if(!((UserThread*)currentThread)->getProcess()->fork_lock_)
+  {
+    ((UserThread *)currentThread)->getProcess()->fork_lock_ = new Mutex("UserProcess::fork_lock_");
+  }
+
+
+  MutexLock lock(*((UserThread *)currentThread)->getProcess()->fork_lock_);
+
   if (!((UserThread*)currentThread)->getProcess()->cow_holding_ps)
   {
     ((UserThread *)currentThread)->getProcess()->cow_holding_ps = new ustl::list<UserProcess *>();
   }
-  
-  if(!((UserThread*)currentThread)->getProcess()->fork_lock_)
-  {
-    ((UserThread *)currentThread)->getProcess()->fork_lock_ = new Mutex("UserProcess::fork_lock_");
-  }  
-  
-
-  MutexLock lock(*((UserThread *)currentThread)->getProcess()->fork_lock_);
 
   bool present = false;
   for (auto it = ((UserThread *)currentThread)->getProcess()->cow_holding_ps->begin(); it != ((UserThread *)currentThread)->getProcess()->cow_holding_ps->end(); it++)
@@ -241,18 +242,34 @@ size_t Syscall::fork()
       delete new_process;
     }
     ArchMemory::writeable(((UserThread *)currentThread)->getProcess()->getLoader()->arch_memory_.page_map_level_4_, 1, Decrement);
+    
     if(((UserThread *)currentThread)->getProcess()->cow_holding_ps->size() == 1)
     {
       delete ((UserThread *)currentThread)->getProcess()->cow_holding_ps;
-      lock.~MutexLock();
-      delete ((UserThread *)currentThread)->getProcess()->fork_lock_;
+      ((UserThread *)currentThread)->getProcess()->cow_holding_ps = nullptr;
     }
+
+
     return -1;
   }
-
+  
   ProcessRegistry::instance()->createProcess(new_process);
-
+  
   return new_process->getPID();
+  */
+
+  int retval = 0;
+  UserProcess *currentProcess = ((UserThread *)currentThread)->getProcess();
+  UserThread *currentUserThread = (UserThread *)currentThread;
+  UserProcess *new_process = new UserProcess(*currentProcess, currentUserThread, &retval);
+
+  if(retval != -1)
+  {
+    ProcessRegistry::instance()->createProcess(new_process);  
+    return new_process->getPID();
+  }
+
+  return -1;
 }
 size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, size_t arg, size_t entry_function)
 {

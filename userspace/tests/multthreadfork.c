@@ -28,8 +28,8 @@ int main()
     for (size_t i = 0; i < 5; i++)
     {
         ret = fork();
-
-        if(ret == 0)
+        printf("ret: %d\n", ret);
+        if (ret == 0)
         {
             for(int i = 0; i < 4; i++) 
             {
