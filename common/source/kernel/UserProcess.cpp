@@ -50,7 +50,7 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread) : //holding_c
   debug(USERPROCESS, "Loader copy done\n");
 
   UserThread *new_thread = new UserThread(*thread, this);
-  
+  cpu_start_rdtsc = ArchThreads::rdtsc();
   new_thread->user_registers_->rsp0 = (size_t)new_thread->getKernelStackStartPointer();
   new_thread->user_registers_->rax = 0;
 

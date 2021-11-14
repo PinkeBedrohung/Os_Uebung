@@ -231,27 +231,25 @@ size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, s
     UserProcess* uprocess = ((UserThread*)currentThread)->getProcess();
     return uprocess->createUserThread((size_t*) thread, (void* (*)(void*))start_routine, (void*) arg, (void*) entry_function);
   }
-  else
-  {
-    exit(50);
+
     return -1U;
-  }
+  
 }
 
 void Syscall::exitThread(size_t retval)
 {
   //TODO: when a thread is cancelled, store -1 in retval so join can also return -1 as PTHREAD_CANCELED
-  if (retval) {
+  
     UserProcess* process = ((UserThread*)currentThread)->getProcess();
     process->mapRetVals(currentThread->getTID(), (void*) retval);
-  }
+  
   currentThread->kill();
 }
 
 size_t Syscall::clock()
 {
   unsigned long long rdtsc = ArchThreads::rdtsc(); //now
-  unsigned long long difference = rdtsc - currentThread->cpu_start_rdtsc;
+  unsigned long long difference = rdtsc -((UserThread*)currentThread)->getProcess()->cpu_start_rdtsc;
   //debug(SYSCALL,"Difference: %lld\n", difference);
   //debug(SYSCALL,"rdtsc: %lld\n", rdtsc);
   size_t retval = (difference)/(Scheduler::instance()->average_rdtsc_/(54925439/1000));
