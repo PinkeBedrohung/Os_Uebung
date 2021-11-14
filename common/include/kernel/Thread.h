@@ -130,6 +130,8 @@ class Thread
 
     unsigned long long time_to_sleep_ = 0;
 
+    bool handled_cow = false;
+
   private:
     Thread(Thread const &src);
     Thread &operator=(Thread const &src);

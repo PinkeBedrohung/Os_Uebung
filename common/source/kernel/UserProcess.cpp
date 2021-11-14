@@ -67,13 +67,6 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
   new_thread->user_registers_->rsp0 = (size_t)new_thread->getKernelStackStartPointer();
   new_thread->user_registers_->rax = 0;
 
-  //ArchThreads::printThreadRegisters(thread);
-  //ArchThreads::printThreadRegisters(new_thread);
-  /*cow_holding_ps = process.cow_holding_ps;
-  cow_holding_ps->push_back(this);
-  process.child_processes_.push_back(this);
-  fork_lock_ = parent_process_->fork_lock_;*/
-
   binary_fd_counter_ = process.binary_fd_counter_;
   (*binary_fd_counter_)++;
 
@@ -83,61 +76,7 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
 UserProcess::~UserProcess()
 {
   debug(USERPROCESS, "~UserProcess - PID %zu\n", getPID());
-  /*
-  bool last_fork_lock_holder = false;
-  if (fork_lock_)
-  {
-    fork_lock_->acquire();
-    if(cow_holding_ps && cow_holding_ps->size() == 2)
-    {
-      ArchMemory::writeable(loader_->arch_memory_.page_map_level_4_, 1, Decrement);
-
-      last_fork_lock_holder = true;
-      cow_holding_ps->remove(this);
-
-      if (!fork_lock_->hasNextOnHoldingList())
-      {
-        cow_holding_ps->front()->cow_holding_ps = nullptr;
-        cow_holding_ps->front()->fork_lock_ = nullptr;
-        delete cow_holding_ps;
-      }
-      
-      cow_holding_ps = nullptr;
-      
-    }
-    else if(cow_holding_ps && cow_holding_ps->size() > 2)
-    {
-      ArchMemory::writeable(loader_->arch_memory_.page_map_level_4_, -1, Decrement);
-      cow_holding_ps->remove(this);
-      cow_holding_ps = nullptr;
-    }
-    
-    fork_lock_->release();
-    
-  }
-
-  if(last_fork_lock_holder && !fork_lock_->heldBy())
-    delete fork_lock_;
-
-  fork_lock_ = nullptr;
   
-  // Remove the current process from the child processes list of the parent
-  if(parent_process_)
-  {
-    for (auto &parents_child_process : parent_process_->child_processes_)
-    {
-      if (parents_child_process == this)
-      {
-        parent_process_->child_processes_.remove(this);
-      }
-    }
-  }
-    // Set the parent of the children to the parent process
-    for (auto &child_process : child_processes_)
-    {
-      child_process->parent_process_ = parent_process_;
-    }
-  */
   delete loader_;
   loader_ = 0;
 

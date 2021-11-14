@@ -43,7 +43,7 @@ inline bool PageFaultHandler::checkPageFaultIsValid(size_t address, bool user,
     if(currentThread->getThreadType() == Thread::USER_THREAD)
     {
       debug(PAGEFAULT, "Copy Page\n");
-      
+      currentThread->handled_cow = true;
       ArchMemory::copyPage(currentThread->loader_->arch_memory_.page_map_level_4_, address);
       return true;
     }
@@ -76,8 +76,9 @@ inline void PageFaultHandler::handlePageFault(size_t address, bool user,
   if (checkPageFaultIsValid(address, user, present, switch_to_us))
   {
     
-    if(present && currentThread->getThreadType() == Thread::USER_THREAD)
+    if(present && currentThread->getThreadType() == Thread::USER_THREAD && currentThread->handled_cow)
     {
+      currentThread->handled_cow = false;
       return;
     }
     

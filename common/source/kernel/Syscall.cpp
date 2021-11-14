@@ -202,65 +202,10 @@ void Syscall::trace()
 
 size_t Syscall::fork()
 {
-  /*
-  if(!((UserThread*)currentThread)->getProcess()->fork_lock_)
-  {
-    ((UserThread *)currentThread)->getProcess()->fork_lock_ = new Mutex("UserProcess::fork_lock_");
-  }
-
-
-  MutexLock lock(*((UserThread *)currentThread)->getProcess()->fork_lock_);
-
-  if (!((UserThread*)currentThread)->getProcess()->cow_holding_ps)
-  {
-    ((UserThread *)currentThread)->getProcess()->cow_holding_ps = new ustl::list<UserProcess *>();
-  }
-
-  bool present = false;
-  for (auto it = ((UserThread *)currentThread)->getProcess()->cow_holding_ps->begin(); it != ((UserThread *)currentThread)->getProcess()->cow_holding_ps->end(); it++)
-  {
-    if (*it == ((UserThread *)currentThread)->getProcess())
-    {
-      present = true;
-      break;
-    }
-  }
-  
-  if (!present)
-    ((UserThread *)currentThread)->getProcess()->cow_holding_ps->push_back(((UserThread *)currentThread)->getProcess());
-
-  ArchMemory::writeable(((UserThread *)currentThread)->getProcess()->getLoader()->arch_memory_.page_map_level_4_, 0);
-
   int retval = 0;
-  UserProcess *new_process = new UserProcess(*((UserThread *)currentThread)->getProcess(), (UserThread *)currentThread, &retval);
   
-  if (retval != 0)
-  {
-    debug(SYSCALL, "Error in creating a forked process of PID %zu\n", ((UserThread *)currentThread)->getProcess()->getPID());
-    if (new_process)
-    {
-      delete new_process;
-    }
-    ArchMemory::writeable(((UserThread *)currentThread)->getProcess()->getLoader()->arch_memory_.page_map_level_4_, 1, Decrement);
-    
-    if(((UserThread *)currentThread)->getProcess()->cow_holding_ps->size() == 1)
-    {
-      delete ((UserThread *)currentThread)->getProcess()->cow_holding_ps;
-      ((UserThread *)currentThread)->getProcess()->cow_holding_ps = nullptr;
-    }
-
-
-    return -1;
-  }
-  
-  ProcessRegistry::instance()->createProcess(new_process);
-  
-  return new_process->getPID();
-  */
-
-  int retval = 0;
-  UserProcess *currentProcess = ((UserThread *)currentThread)->getProcess();
   UserThread *currentUserThread = (UserThread *)currentThread;
+  UserProcess *currentProcess = currentUserThread->getProcess();
   UserProcess *new_process = new UserProcess(*currentProcess, currentUserThread, &retval);
 
   if(retval != -1)

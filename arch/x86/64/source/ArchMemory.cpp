@@ -64,7 +64,7 @@ bool ArchMemory::unmapPage(uint64 virtual_page)
 
   if(access_counter[m.pt[m.pti].page_ppn] == 0)
     PageManager::instance()->freePPN(m.page_ppn);
-    
+
   ((uint64*)m.pt)[m.pti] = 0; // for easier debugging
   bool empty = checkAndRemove<PageTableEntry>(getIdentAddressOfPPN(m.pt_ppn), m.pti);
   if (empty)
@@ -581,8 +581,8 @@ void ArchMemory::copyPage(uint64 pml4_ppn, uint64 address)
               {
                 if(pt[pti].present && pt[pti].page_ppn == page_ppn)
                 {
-                  debug(PAGEFAULT, "PPN %ld \n", pt[pti].page_ppn);
-                  access_counter[pt[pti].page_ppn]--;
+                  if(access_counter[pt[pti].page_ppn] != 0)
+                    access_counter[pt[pti].page_ppn]--;
 
                   if(access_counter[pt[pti].page_ppn] != 0)
                   {
