@@ -211,7 +211,7 @@ void UserProcess::cancelNonCurrentThreads(Thread *thread)
   threads_lock_.acquire();
   for (auto it = threads_.begin(); it != threads_.end(); it++)
   {
-     debug(USERPROCESS, "You came to the wrong house fool \n");
+     //debug(USERPROCESS, "You came to the wrong house fool \n");
     if ((*it)->getTID() != thread->getTID())
     {
       (*it)->kill();
@@ -249,9 +249,6 @@ void UserProcess::mapRetVals(size_t tid, void* retval)
 int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
 {
   cancelNonCurrentThreads(currentThread);
-
-
-
   while(num_threads_ != 1)
   {Scheduler::instance()->yield();}
 
@@ -263,27 +260,39 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   //TODO: Old fd deleting has to be handled  
   filename_ = ustl::string(path);
   int32_t fd = VfsSyscall::open(filename_.c_str(), O_RDONLY); 
+  debug(USERPROCESS,"Filedescriptor ========= %d \n",fd);
+  currentThread->user_registers_ = new ArchThreadRegisters();
+  //
   Loader* loader = new Loader(fd);
   loader->loadExecutableAndInitProcess();
 
   ArchThreads::printThreadRegisters(currentThread);
+
+
   ((UserThread*)currentThread)->allocatePage(arg,loader,fd);
-  
+  //debug(true,"CAME THROUGH");
 
   ArchThreads::setAddressSpace(currentThread, loader->arch_memory_);
  
   ArchThreads::printThreadRegisters(currentThread);
-  
+  // loader->printLoader();
+  // loader_->printLoader();
+
+
   Loader* old_loader = loader_;
   ssize_t old_fd = fd_;
 
+ 
+  
   fd_=fd;
+  currentThread->loader_ = loader;
   loader_ = loader;
   
   
   //ArchThreads::setAddressSpace(currentThread, loader_->arch_memory_);
   VfsSyscall::close(old_fd);
   delete old_loader;
-  Scheduler::instance()->yield();
+  //Scheduler::instance()->yield();
+  currentThread->switch_to_userspace_ = 1;
   return 0;
 }
