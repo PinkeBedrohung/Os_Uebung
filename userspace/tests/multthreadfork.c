@@ -25,13 +25,16 @@ int main()
     pthread_t thread[4];
 
     int ret = 0;
-    for (size_t i = 0; i < 10; i++)
+    int val = 0;
+    for (size_t i = 0; i < 100; i++)
     {
+        val++;
         ret = fork();
-        printf("ret: %d\n", ret);
+        printf("ret: %d val: %d\n", ret, val);
         if (ret == 0)
         {
-            for(int i = 0; i < 4; i++) 
+            val += 1000000;
+            for (int i = 0; i < 4; i++)
             {
                 pthread_create(&(thread[i]), 0x0, (void*(*)())&thread_function, 0x0);
             }
@@ -39,7 +42,8 @@ int main()
         }
         else
         {
-            //pthread_create(&(thread[0]), 0x0, (void*(*)())&thread_function, 0x0);
+            val++;
+            // pthread_create(&(thread[0]), 0x0, (void*(*)())&thread_function, 0x0);
         }
         
     }
