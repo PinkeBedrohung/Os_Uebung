@@ -275,12 +275,16 @@ int Syscall::exec(const char *path, char const* arg[])
     return -1;
   }
 
-  
+  if(((UserThread*)currentThread)->getProcess() == 0)
+  {
+    debug(MAIN,"jow du startest grod mit da shell a exec is ned so nice\n");
+    return -1;
+  }
 
-  ((UserThread *)currentThread)->getProcess()->replaceProcessorImage(path, arg);
+  return ((UserThread *)currentThread)->getProcess()->replaceProcessorImage(path, arg);
 
   
   
-  return 0;
+  
   
 }

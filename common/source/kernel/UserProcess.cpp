@@ -292,7 +292,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   //ArchThreads::setAddressSpace(currentThread, loader_->arch_memory_);
   VfsSyscall::close(old_fd);
   delete old_loader;
-  //Scheduler::instance()->yield();
+  Scheduler::instance()->yield();
   currentThread->switch_to_userspace_ = 1;
   return 0;
 }

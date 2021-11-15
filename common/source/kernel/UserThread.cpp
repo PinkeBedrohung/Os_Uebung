@@ -37,6 +37,8 @@ UserThread::UserThread(UserProcess* process, size_t* tid, void* (*routine)(void*
 void UserThread::allocatePage(char const *arg[], Loader* loader, int32_t fd)
 {
     //loader_ = process_->getLoader();
+    //ArchMemory arguments;
+    //arguments.mapPage(kernel_stack_);
     size_t page_for_stack = PageManager::instance()->allocPPN();
     bool vpn_mapped = loader->arch_memory_.mapPage(USER_BREAK / PAGE_SIZE -1 , page_for_stack, 1);
     assert(vpn_mapped && "Virtual page for stack was already mapped - this should never happen");
