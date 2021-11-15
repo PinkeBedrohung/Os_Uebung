@@ -49,12 +49,13 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
 
   if(process.getLoader() && fd_ >= 0)
   {
-    loader_ = new Loader(*process.getLoader(), fd_, retval);
+    loader_ = new Loader(*process.getLoader(), fd_);
   }
-  else
+
+  if (!loader_ || !loader_->loadExecutableAndInitProcess())
   {
+    debug(USERPROCESS, "Error: loading %s failed!\n", filename_.c_str());
     *retval = -1;
-    debug(USERPROCESS, "Error while trying to copy loader\n");
     return;
   }
   cpu_start_rdtsc = ArchThreads::rdtsc();
