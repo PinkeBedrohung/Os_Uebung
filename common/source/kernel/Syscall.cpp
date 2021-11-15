@@ -213,7 +213,10 @@ size_t Syscall::fork()
     ProcessRegistry::instance()->createProcess(new_process);  
     return new_process->getPID();
   }
-
+  else
+  {
+    delete new_process;
+  }
 
   return -1;
 }

@@ -88,9 +88,9 @@ UserThread::~UserThread()
     assert(Scheduler::instance()->isCurrentlyCleaningUp());
 
     debug(USERTHREAD, "~UserThread - TID %zu\n", getTID());
-    process_->alive_lock_.acquire();
-    alive_cond_.broadcast();
-    process_->alive_lock_.release();
+    //process_->alive_lock_.acquire();
+    //alive_cond_.broadcast();
+    //process_->alive_lock_.release();
 
     process_->removeThread(this);
 

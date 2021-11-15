@@ -55,3 +55,23 @@ void PageInfo::unlockRefCount()
     assert(ref_lock_.isHeldBy(currentThread));
     ref_lock_.release();
 }
+
+uint64 PageInfo::getUnsafeRefCount()
+{
+    return ref_count_;
+}
+
+void PageInfo::setUnsafeRefCount(uint64 value)
+{
+    ref_count_ = value;
+}
+
+bool PageInfo::decUnsafeRefCount()
+{
+    if(ref_count_ != 0)
+    {
+        ref_count_--;
+        return true;
+    }
+    return false;
+}

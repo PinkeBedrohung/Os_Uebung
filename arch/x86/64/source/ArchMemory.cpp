@@ -57,16 +57,16 @@ bool ArchMemory::unmapPage(uint64 virtual_page)
   ArchMemoryMapping m = resolveMapping(virtual_page);
 
   assert(m.page_ppn != 0 && m.page_size == PAGE_SIZE && m.pt[m.pti].present);
-  //MutexLock lock(access_lock);
-  pageInfo[m.pt[m.pti].page_ppn].lockRefCount();
+
+  //pageInfo[m.pt[m.pti].page_ppn].lockRefCount();
   m.pt[m.pti].present = 0;
 
-  pageInfo[m.pt[m.pti].page_ppn].decRefCount();
+  pageInfo[m.pt[m.pti].page_ppn].decUnsafeRefCount();
 
-  if(pageInfo[m.pt[m.pti].page_ppn].getRefCount() == 0)
+  if(pageInfo[m.pt[m.pti].page_ppn].getUnsafeRefCount() == 0)
     PageManager::instance()->freePPN(m.page_ppn);
 
-  pageInfo[m.pt[m.pti].page_ppn].unlockRefCount();
+  //pageInfo[m.pt[m.pti].page_ppn].unlockRefCount();
 
   ((uint64*)m.pt)[m.pti] = 0; // for easier debugging
   bool empty = checkAndRemove<PageTableEntry>(getIdentAddressOfPPN(m.pt_ppn), m.pti);
@@ -168,15 +168,15 @@ ArchMemory::~ArchMemory()
               {
                 if (pt[pti].present)
                 {
-                  pageInfo[pt[pti].page_ppn].lockRefCount();
+                  //pageInfo[pt[pti].page_ppn].lockRefCount();
                   pt[pti].present = 0;
 
-                  pageInfo[pt[pti].page_ppn].decRefCount();
+                  pageInfo[pt[pti].page_ppn].decUnsafeRefCount();
   
-                  if(pageInfo[pt[pti].page_ppn].getRefCount() == 0)
+                  if(pageInfo[pt[pti].page_ppn].getUnsafeRefCount() == 0)
                     PageManager::instance()->freePPN(pt[pti].page_ppn);
-                  //access_lock.release();
-                  pageInfo[pt[pti].page_ppn].unlockRefCount();
+
+                  //pageInfo[pt[pti].page_ppn].unlockRefCount();
                 }
               }
               pd[pdi].pt.present = 0;

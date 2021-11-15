@@ -25,7 +25,7 @@ int main()
     pthread_t thread[4];
 
     int ret = 0;
-    for (size_t i = 0; i < 4; i++)
+    for (size_t i = 0; i < 100; i++)
     {
         ret = fork();
         printf("ret: %d\n", ret);
@@ -35,10 +35,11 @@ int main()
             {
                 pthread_create(&(thread[i]), 0x0, (void*(*)())&thread_function, 0x0);
             }
+            break;
         }
         else
         {
-            pthread_create(&(thread[i]), 0x0, (void*(*)())&thread_function, 0x0);
+            //pthread_create(&(thread[0]), 0x0, (void*(*)())&thread_function, 0x0);
         }
         
     }
