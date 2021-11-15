@@ -60,14 +60,14 @@ bool ArchMemory::unmapPage(uint64 virtual_page)
   assert(m.page_ppn != 0 && m.page_size == PAGE_SIZE && m.pt[m.pti].present);
 
   //pageInfo[m.pt[m.pti].page_ppn].lockRefCount();
-
+  m.pt[m.pti].present = 0;
   pageInfo[m.pt[m.pti].page_ppn].decUnsafeRefCount();
 
   debug(COW, "Unmap Page REF Count: %ld, PPN: %ld\n", pageInfo[m.pt[m.pti].page_ppn].getUnsafeRefCount(), m.pt[m.pti].page_ppn);
   if(pageInfo[m.pt[m.pti].page_ppn].getUnsafeRefCount() == 0)
   {
     debug(COW, "Unmap Page PPN: %ld\n", m.pt[m.pti].page_ppn);
-    m.pt[m.pti].present = 0;
+    
     PageManager::instance()->freePPN(m.page_ppn);
   }
   //pageInfo[m.pt[m.pti].page_ppn].unlockRefCount();
@@ -174,6 +174,7 @@ ArchMemory::~ArchMemory()
                 if (pt[pti].present)
                 {
                   //pageInfo[pt[pti].page_ppn].lockRefCount();
+                  pt[pti].present = 0;
                   
                   pageInfo[pt[pti].page_ppn].decUnsafeRefCount();
                   debug(COW, "REF Count: %ld, PPN: %ld\n", pageInfo[pt[pti].page_ppn].getUnsafeRefCount(), pt[pti].page_ppn);
@@ -181,7 +182,7 @@ ArchMemory::~ArchMemory()
                   if(pageInfo[pt[pti].page_ppn].getUnsafeRefCount() == 0)
                   {
                     debug(COW, "Free page PPN: %ld\n", pt[pti].page_ppn);
-                    pt[pti].present = 0;
+                    
                     PageManager::instance()->freePPN(pt[pti].page_ppn);
                   }
                   //pageInfo[pt[pti].page_ppn].unlockRefCount();
