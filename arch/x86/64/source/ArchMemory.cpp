@@ -172,10 +172,13 @@ ArchMemory::~ArchMemory()
                   pt[pti].present = 0;
 
                   pageInfo[pt[pti].page_ppn].decUnsafeRefCount();
-  
-                  if(pageInfo[pt[pti].page_ppn].getUnsafeRefCount() == 0)
-                    PageManager::instance()->freePPN(pt[pti].page_ppn);
+                  debug(COW, "REF Count: %ld, PPN: %ld\n", pageInfo[pt[pti].page_ppn].getUnsafeRefCount(), pt[pti].page_ppn);
 
+                  if(pageInfo[pt[pti].page_ppn].getUnsafeRefCount() == 0)
+                  {
+                    debug(COW, "Free page PPN: %ld\n", pt[pti].page_ppn);
+                    PageManager::instance()->freePPN(pt[pti].page_ppn);
+                  }
                   //pageInfo[pt[pti].page_ppn].unlockRefCount();
                 }
               }

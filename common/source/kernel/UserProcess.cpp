@@ -31,7 +31,7 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
     return;
   }
 
-  binary_fd_counter_ = new int32(1);
+  //binary_fd_counter_ = new int32(1);
   UserThread *new_thread = new UserThread(this);
   new_thread->first_thread_ = true;
   addThread(new_thread);
@@ -39,7 +39,7 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
 
 UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) : //holding_cow_(true),
          alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), retvals_lock_("UserProcess::retvals_lock_"),
-         fd_(process.getFd()),//fd_(VfsSyscall::open(process.getFilename().c_str(), O_RDONLY))
+         fd_(VfsSyscall::open(process.filename_, O_RDONLY)),//fd_(VfsSyscall::open(process.getFilename().c_str(), O_RDONLY))
          pid_(ProcessRegistry::instance()->getNewPID()),
          filename_(process.getFilename()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
          terminal_number_(process.getTerminalNumber())//, parent_process_(&process), child_processes_()
@@ -67,8 +67,10 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
   new_thread->user_registers_->rsp0 = (size_t)new_thread->getKernelStackStartPointer();
   new_thread->user_registers_->rax = 0;
 
+  /*
   binary_fd_counter_ = process.binary_fd_counter_;
   (*binary_fd_counter_)++;
+  */
 
   addThread(new_thread);
 }
@@ -85,13 +87,15 @@ UserProcess::~UserProcess()
 
   if (fd_ > 0)
   {
+    /*
     (*binary_fd_counter_)--;
 
     if(*binary_fd_counter_ == 0)
     {
-      delete binary_fd_counter_;
+      */
+      //delete binary_fd_counter_;
       VfsSyscall::close(fd_);
-    }
+    //}
   }
   ProcessRegistry::instance()->releasePID(pid_);
   ProcessRegistry::instance()->processExit();
