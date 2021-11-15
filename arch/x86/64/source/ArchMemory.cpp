@@ -54,12 +54,12 @@ bool ArchMemory::checkAndRemove(pointer map_ptr, uint64 index)
 
 bool ArchMemory::unmapPage(uint64 virtual_page)
 {
+  //MutexLock lock(archmem_lock_);
   ArchMemoryMapping m = resolveMapping(virtual_page);
 
   assert(m.page_ppn != 0 && m.page_size == PAGE_SIZE && m.pt[m.pti].present);
 
   //pageInfo[m.pt[m.pti].page_ppn].lockRefCount();
-  m.pt[m.pti].present = 0;
 
   pageInfo[m.pt[m.pti].page_ppn].decUnsafeRefCount();
 
@@ -67,6 +67,7 @@ bool ArchMemory::unmapPage(uint64 virtual_page)
   if(pageInfo[m.pt[m.pti].page_ppn].getUnsafeRefCount() == 0)
   {
     debug(COW, "Unmap Page PPN: %ld\n", m.pt[m.pti].page_ppn);
+    m.pt[m.pti].present = 0;
     PageManager::instance()->freePPN(m.page_ppn);
   }
   //pageInfo[m.pt[m.pti].page_ppn].unlockRefCount();
@@ -115,7 +116,7 @@ bool ArchMemory::insert(pointer map_ptr, uint64 index, uint64 ppn, uint64 bzero,
 
 bool ArchMemory::mapPage(uint64 virtual_page, uint64 physical_page, uint64 user_access)
 {
-  MutexLock lock(archmem_lock_);
+  //MutexLock lock(archmem_lock_);
   debug(A_MEMORY, "%zx %zx %zx %zx\n", page_map_level_4_, virtual_page, physical_page, user_access);
   ArchMemoryMapping m = resolveMapping(page_map_level_4_, virtual_page);
   assert((m.page_size == 0) || (m.page_size == PAGE_SIZE));
@@ -149,7 +150,7 @@ bool ArchMemory::mapPage(uint64 virtual_page, uint64 physical_page, uint64 user_
 ArchMemory::~ArchMemory()
 {
   assert(currentThread->kernel_registers_->cr3 != page_map_level_4_ * PAGE_SIZE && "thread deletes its own arch memory");
-  MutexLock lock(archmem_lock_);
+  //MutexLock lock(archmem_lock_);
   PageMapLevel4Entry *pml4 = (PageMapLevel4Entry *)getIdentAddressOfPPN(page_map_level_4_);
   for (uint64 pml4i = 0; pml4i < PAGE_MAP_LEVEL_4_ENTRIES / 2; pml4i++) // free only lower half
   {
@@ -173,14 +174,14 @@ ArchMemory::~ArchMemory()
                 if (pt[pti].present)
                 {
                   //pageInfo[pt[pti].page_ppn].lockRefCount();
-                  pt[pti].present = 0;
-
+                  
                   pageInfo[pt[pti].page_ppn].decUnsafeRefCount();
                   debug(COW, "REF Count: %ld, PPN: %ld\n", pageInfo[pt[pti].page_ppn].getUnsafeRefCount(), pt[pti].page_ppn);
 
                   if(pageInfo[pt[pti].page_ppn].getUnsafeRefCount() == 0)
                   {
                     debug(COW, "Free page PPN: %ld\n", pt[pti].page_ppn);
+                    pt[pti].present = 0;
                     PageManager::instance()->freePPN(pt[pti].page_ppn);
                   }
                   //pageInfo[pt[pti].page_ppn].unlockRefCount();
@@ -485,7 +486,7 @@ void ArchMemory::setKernelPagingPML4(uint64 pml4_ppn, uint64 new_pml4_ppn)
 
 void ArchMemory::copyPagingStructure(ArchMemory &archmemory, uint64 new_pml4_ppn)
 {
-  MutexLock lock(archmemory.archmem_lock_);
+  //MutexLock lock(archmemory.archmem_lock_);
   PageMapLevel4Entry *pml4 = (PageMapLevel4Entry *)getIdentAddressOfPPN(archmemory.page_map_level_4_);
   PageDirPointerTableEntry *pdpt;
   PageDirEntry *pd;
@@ -559,7 +560,7 @@ void ArchMemory::copyPagingStructure(ArchMemory &archmemory, uint64 new_pml4_ppn
 
 void ArchMemory::copyPage(ArchMemory &archmemory, uint64 address)
 {
-  MutexLock lock(archmemory.archmem_lock_);
+  //MutexLock lock(archmemory.archmem_lock_);
   ArchMemoryMapping m = ArchMemory::resolveMapping(currentThread->loader_->arch_memory_.page_map_level_4_, address / PAGE_SIZE);
   uint64 page_ppn = m.page_ppn;
   
