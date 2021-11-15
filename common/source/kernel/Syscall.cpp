@@ -214,8 +214,10 @@ size_t Syscall::fork()
     return new_process->getPID();
   }
 
+
   return -1;
 }
+
 size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, size_t arg, size_t entry_function)
 {
   if((size_t)start_routine >= USER_BREAK || (size_t)arg >= USER_BREAK) return -1U;

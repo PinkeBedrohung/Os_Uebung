@@ -34,15 +34,10 @@ inline bool PageFaultHandler::checkPageFaultIsValid(size_t address, bool user,
   else if(present)
   {
     debug(PAGEFAULT, "You got a pagefault even though the address is mapped.\n");
-    /*
-    if(currentThread->getThreadType() == Thread::USER_THREAD && ((UserThread *)currentThread)->getProcess()->fork_lock_)
-    {
-      ((UserThread *)currentThread)->getProcess()->copyPages();
-      return true;
-    }*/
+
     if(currentThread->getThreadType() == Thread::USER_THREAD)
     {
-      debug(PAGEFAULT, "Copy Page\n");
+      debug(COW, "Copy Page / Set writeable\n");
       currentThread->handled_cow = true;
       ArchMemory::copyPage(currentThread->loader_->arch_memory_.page_map_level_4_, address);
       return true;

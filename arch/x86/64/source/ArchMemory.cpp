@@ -524,10 +524,9 @@ void ArchMemory::copyPagingStructure(uint64 pml4_ppn, uint64 new_pml4_ppn)
               {
                 if(pt[pti].present)
                 {
+                  pt[pti].writeable = 0;
                   memcpy(&new_pt[pti], &pt[pti], sizeof(PageTableEntry));
                   // Set the new and old pagetable entries to writeable 0
-                  new_pt[pti].writeable = 0;
-                  pt[pti].writeable = 0;
 
                   if(access_counter[pt[pti].page_ppn] == 0)
                   {
@@ -538,7 +537,6 @@ void ArchMemory::copyPagingStructure(uint64 pml4_ppn, uint64 new_pml4_ppn)
                     access_counter[pt[pti].page_ppn]++;
                   }
 
-                  new_pt[pti].page_ppn = pt[pti].page_ppn;
                 }
               }
             }
@@ -581,9 +579,12 @@ void ArchMemory::copyPage(uint64 pml4_ppn, uint64 address)
               {
                 if(pt[pti].present && pt[pti].page_ppn == page_ppn)
                 {
-                  if(access_counter[pt[pti].page_ppn] != 0)
+                  assert(access_counter[pt[pti].page_ppn] != 0);
+                  if (access_counter[pt[pti].page_ppn] != 0)
                     access_counter[pt[pti].page_ppn]--;
 
+                  debug(COW, "Access Counter: %d\n",access_counter[pt[pti].page_ppn]);
+                  
                   if(access_counter[pt[pti].page_ppn] != 0)
                   {
                     uint64 old_page_ppn = pt[pti].page_ppn;
@@ -591,6 +592,8 @@ void ArchMemory::copyPage(uint64 pml4_ppn, uint64 address)
                     pt[pti].page_ppn = PageManager::instance()->allocPPN();
 
                     memcpy((void*)getIdentAddressOfPPN(pt[pti].page_ppn), (void*)getIdentAddressOfPPN(old_page_ppn), PAGE_SIZE);
+
+                    debug(COW, "Copied Page PPN: %ld to new PPN: %ld\n", old_page_ppn, pt[pti].page_ppn);
                   }
 
                   pt[pti].writeable = 1;
