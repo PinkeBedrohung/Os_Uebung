@@ -26,7 +26,7 @@ int main()
 
     int ret = 0;
     int val = 0;
-    for (size_t i = 0; i < 10; i++)
+    for (size_t i = 0; i < 100; i++)
     {
         val++;
         ret = fork();

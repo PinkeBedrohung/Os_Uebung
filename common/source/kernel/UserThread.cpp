@@ -36,8 +36,8 @@ UserThread::UserThread(UserProcess* process,  void* (*routine)(void*), void* arg
     to_cancel_ = false;
 
     debug(USERTHREAD, "ATTENTION: Not first Thread\n, setting rdi:%zu , and rsi:%zu\n", (size_t)routine,(size_t)args);
-    ArchThreads::atomic_set(this->user_registers_->rdi, (size_t)routine);
-    ArchThreads::atomic_set(this->user_registers_->rsi, (size_t)args);
+    user_registers_->rdi = (size_t)routine;
+    user_registers_->rsi = (size_t)args;
 }
 
 void UserThread::createThread(void* entry_function)
