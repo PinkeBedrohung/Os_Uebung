@@ -16,11 +16,11 @@ public:
   Mutex *getRefLock();
   void lockRefCount();
   void unlockRefCount();
-
+  /*
   uint64 getUnsafeRefCount();
   void setUnsafeRefCount(uint64 value);
   bool decUnsafeRefCount();
-
+*/
 private:
   uint64 ref_count_;
   Mutex ref_lock_;

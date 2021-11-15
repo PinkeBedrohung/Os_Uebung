@@ -55,7 +55,7 @@ void PageInfo::unlockRefCount()
     assert(ref_lock_.isHeldBy(currentThread));
     ref_lock_.release();
 }
-
+/*
 uint64 PageInfo::getUnsafeRefCount()
 {
     return ref_count_;
@@ -75,3 +75,4 @@ bool PageInfo::decUnsafeRefCount()
     }
     return false;
 }
+*/
