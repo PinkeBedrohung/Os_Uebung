@@ -20,12 +20,13 @@ class UserProcess
      *
      */
     UserProcess(ustl::string minixfs_filename, FileSystemInfo *fs_info, uint32 pid, uint32 terminal_number = 0);
-    UserProcess(UserProcess &process, UserThread *thread = NULL);
+    UserProcess(UserProcess &process, UserThread *thread, int* retval);
 
     virtual ~UserProcess();
 
     int32 getFd();
     ThreadList* getThreads();
+    Thread* getThread(size_t tid);
     size_t getPID();
     void setPID(size_t pid);
     ustl::string getFilename();
@@ -37,19 +38,23 @@ class UserProcess
     void removeThread(Thread *thread);
     uint64 copyPages();
     size_t getNumThreads();
-    Mutex* fork_lock_;
-    ustl::list<UserProcess *> *cow_holding_ps;
+    //Mutex* fork_lock_;
+    //ustl::list<UserProcess *> *cow_holding_ps;
     void cancelNonCurrentThreads(Thread *thread);
     int  replaceProcessorImage(const char *path,char const* arg[]);
+    //Mutex* fork_lock_;
+    //ustl::list<UserProcess *> *cow_holding_ps;
     // bool holding_cow_;
 
     static const size_t MAX_PID = 4194304;
     size_t createUserThread(size_t* tid, void* (*routine)(void*), void* args, void* entry_function);
-
-    size_t created_threads_;
+    size_t cancelUserThread(size_t tid);
     ustl::map<size_t, void*> retvals_;
-
+    unsigned long long cpu_start_rdtsc = 0;
     void mapRetVals(size_t tid, void* retval);
+    Mutex alive_lock_;
+    Mutex threads_lock_;
+    Mutex retvals_lock_;
   private:
     int32 fd_;
     uint32 pid_;
@@ -60,7 +65,9 @@ class UserProcess
     UserProcess* parent_process_;
     ustl::list<UserProcess*> child_processes_;
 
-    Mutex threads_lock_;
+    int32* binary_fd_counter_;
+
+    
     ThreadList threads_;
     size_t num_threads_;  
 };

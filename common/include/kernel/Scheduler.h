@@ -38,6 +38,8 @@ class Scheduler
      */
     uint32 schedule();
 
+    size_t getNewTID();
+
   protected:
     friend class IdleThread;
     friend class CleanupThread;
@@ -60,18 +62,14 @@ class Scheduler
      */
     void unlockScheduling();
 
-    size_t getNewTID();
     
-    void releaseTID(size_t pid);
+    
 
     static Scheduler *instance_;
 
     typedef ustl::list<Thread*> ThreadList;
     ThreadList threads_;
-    Mutex list_lock_;
     Mutex num_threads_lock_;
-    ustl::list<size_t> used_tids_;
-    ustl::list<size_t> unused_tids_;
     size_t num_threads_;
 
     size_t block_scheduling_;

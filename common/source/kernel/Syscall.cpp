@@ -16,7 +16,12 @@
 size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2, size_t arg3, size_t arg4, size_t arg5)
 {
   size_t return_value = 0;
-
+  debug(SYSCALL, "CurrentThread %ld to_cancel_: %d\n",((UserThread*)currentThread)->getTID(), (int)((UserThread*)currentThread)->to_cancel_);
+  if(((UserThread*)currentThread)->to_cancel_)
+  {
+    currentThread->kill();
+    return 0;
+  }
   if ((syscall_number != sc_sched_yield) && (syscall_number != sc_outline)) // no debug print because these might occur very often
   {
     debug(SYSCALL, "Syscall %zd called with arguments %zd(=%zx) %zd(=%zx) %zd(=%zx) %zd(=%zx) %zd(=%zx)\n",
@@ -55,8 +60,14 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     case sc_pthread_create:
       return_value = createThread(arg1, arg2, arg3, arg4, arg5);
       break;
+    case sc_pthread_cancel:
+      return_value = cancelThread(arg1);
+      break;
     case sc_pthread_exit:
       exitThread(arg1);
+      break;
+    case sc_pthread_join:
+      return_value = joinThread(arg1, (void**)arg2);
       break;
     case sc_clock:
       return_value = clock();
@@ -195,27 +206,25 @@ void Syscall::trace()
 
 size_t Syscall::fork()
 {
-  if (!((UserThread*)currentThread)->getProcess()->cow_holding_ps)
+  int retval = 0;
+  
+  UserThread *currentUserThread = (UserThread *)currentThread;
+  UserProcess *currentProcess = currentUserThread->getProcess();
+  UserProcess *new_process = new UserProcess(*currentProcess, currentUserThread, &retval);
+
+  if(retval != -1)
   {
-    ((UserThread *)currentThread)->getProcess()->cow_holding_ps = new ustl::list<UserProcess *>();
+    ProcessRegistry::instance()->createProcess(new_process);  
+    return new_process->getPID();
   }
-  
-  if(!((UserThread*)currentThread)->getProcess()->fork_lock_)
+  else
   {
-    ((UserThread *)currentThread)->getProcess()->fork_lock_ = new Mutex("UserProcess::cow_lock_");
-  }  
-    
+    delete new_process;
+  }
 
-  MutexLock lock(*((UserThread *)currentThread)->getProcess()->fork_lock_);
-  ((UserThread *)currentThread)->getProcess()->cow_holding_ps->push_back(((UserThread *)currentThread)->getProcess());
-  
-  ArchMemory::writeable(((UserThread *)currentThread)->getProcess()->getLoader()->arch_memory_.page_map_level_4_, 0);
-
-  UserProcess *new_process = new UserProcess(*((UserThread *)currentThread)->getProcess(), (UserThread*)currentThread);
-  ProcessRegistry::instance()->createProcess(new_process);
-
-  return new_process->getPID();
+  return -1;
 }
+
 size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, size_t arg, size_t entry_function)
 {
   if((size_t)start_routine >= USER_BREAK || (size_t)arg >= USER_BREAK) return -1U;
@@ -224,28 +233,25 @@ size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, s
     UserProcess* uprocess = ((UserThread*)currentThread)->getProcess();
     return uprocess->createUserThread((size_t*) thread, (void* (*)(void*))start_routine, (void*) arg, (void*) entry_function);
   }
-  else
-  {
-    exit(50);
+
     return -1U;
-  }
+  
 }
 
 void Syscall::exitThread(size_t retval)
 {
-  // TODO: Add retval to process for join
-  if (retval) {
+  //TODO: when a thread is cancelled, store -1 in retval so join can also return -1 as PTHREAD_CANCELED
+  
     UserProcess* process = ((UserThread*)currentThread)->getProcess();
     process->mapRetVals(currentThread->getTID(), (void*) retval);
-  }
-  // TODO: End
+  
   currentThread->kill();
 }
 
 size_t Syscall::clock()
 {
   unsigned long long rdtsc = ArchThreads::rdtsc(); //now
-  unsigned long long difference = rdtsc - currentThread->cpu_start_rdtsc;
+  unsigned long long difference = rdtsc -((UserThread*)currentThread)->getProcess()->cpu_start_rdtsc;
   //debug(SYSCALL,"Difference: %lld\n", difference);
   //debug(SYSCALL,"rdtsc: %lld\n", rdtsc);
   size_t retval = (difference)/(Scheduler::instance()->average_rdtsc_/(54925439/1000));
@@ -287,4 +293,73 @@ int Syscall::exec(const char *path, char const* arg[])
   
   
   
+}
+
+size_t Syscall::joinThread(size_t thread, void** value_ptr)
+{
+  
+  if(thread == NULL)
+  {
+    //debug(SYSCALL, "Thread to be joined is non-existent!\n");
+    return (size_t)-1U;
+  }
+
+
+  // TODO
+  // check if the thread was canceled and pass the PTHREAD_CANCELED to value_ptr
+  // SOLVED: exit will pass -1 as retval when cancel is called
+
+  UserThread* calling_thread = ((UserThread*)currentThread);
+  UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
+  UserThread* thread_to_join = ((UserThread*)current_process->getThread(thread));
+
+  if(thread == calling_thread->getTID())
+  {
+    //debug(SYSCALL, "Thread is calling join on itselt")
+    return (size_t)-1U;
+  }
+
+  current_process->retvals_lock_.acquire();
+  if(current_process->retvals_.find(thread) == current_process->retvals_.end())
+  {
+    current_process->retvals_lock_.release();
+
+    //TODO check if other thread in join chain of thread_to_join is waiting for our calling_thread to avoid join deadlock
+    if(calling_thread->chainJoin(thread_to_join->getTID()))
+    {
+      return (size_t) -1U;
+    }
+  
+    //current_process->threads_lock_.acquire();
+    calling_thread->join_ = thread_to_join;
+    current_process->alive_lock_.acquire();
+    //current_process->threads_lock_.release();
+    thread_to_join->alive_cond_.waitAndRelease();
+    calling_thread->join_ = NULL;
+  }
+
+  if(current_process->retvals_lock_.isHeldBy(currentThread))
+  {
+    current_process->retvals_lock_.release();
+  }
+  
+
+  if(value_ptr != NULL)
+  {
+    if((uint64)value_ptr <= USER_BREAK && 
+       current_process->retvals_.find(thread) != current_process->retvals_.end())
+      *value_ptr = current_process->retvals_.at(thread);
+    else
+      return (size_t) -1U;
+  }
+
+  return (size_t) 0;
+}
+
+size_t Syscall::cancelThread(size_t tid)
+{
+  UserProcess* process = ((UserThread*)currentThread)->getProcess();
+  process->mapRetVals(tid, (void*) -1);
+  debug(SYSCALL, "Calling cancelUserThread on Thread: %ld\n", tid);
+  return process->cancelUserThread(tid);
 }

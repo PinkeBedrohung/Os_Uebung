@@ -101,7 +101,7 @@ class Thread
 
     Loader* loader_;
 
-    unsigned long long cpu_start_rdtsc = 0;
+    
     void setState(ThreadState state);
 
     /**
@@ -129,6 +129,8 @@ class Thread
     TYPE getThreadType();
 
     unsigned long long time_to_sleep_ = 0;
+
+    bool handled_cow = false;
 
   private:
     Thread(Thread const &src);

@@ -14,7 +14,7 @@ class Loader
 {
   public:
     Loader(ssize_t fd);
-    Loader(Loader &loader, size_t fd);
+    Loader(Loader &loader, size_t fd, int* retval);
     ~Loader();
 
     /**

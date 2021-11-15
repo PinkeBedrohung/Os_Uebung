@@ -98,6 +98,9 @@ public:
   static uint64 copyPagingStructure(uint64 pml4_ppn);
   static void printMemoryMapping(ArchMemoryMapping* mapping);
   static void setKernelPagingPML4(uint64 pml4_ppn, uint64 new_pml4_ppn);
+
+  static void copyPagingStructure(uint64 pml4_ppn, uint64 new_pml4_ppn);
+  static void copyPage(uint64 pml4_ppn, uint64 address);
   /**
    *
    * maps a virtual page to a physical page in kernel mapping

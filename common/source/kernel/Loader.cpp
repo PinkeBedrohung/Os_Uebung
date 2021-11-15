@@ -318,7 +318,7 @@ debug(LOADER,"hdr = %p \n", hdr_);
 
 }
 
-Loader::Loader(Loader &loader, size_t fd) : arch_memory_(loader.arch_memory_), fd_(fd), program_binary_lock_("Loader::program_binary_lock_"), userspace_debug_info_(0)
+Loader::Loader(Loader &loader, size_t fd,int* retval) : arch_memory_(loader.arch_memory_), fd_(fd), program_binary_lock_("Loader::program_binary_lock_"), userspace_debug_info_(0)
 {
   hdr_ = new Elf::Ehdr;
   memcpy(hdr_, loader.hdr_, sizeof(Elf::Ehdr));
@@ -327,8 +327,9 @@ Loader::Loader(Loader &loader, size_t fd) : arch_memory_(loader.arch_memory_), f
   {
     phdrs_.push_back(phdr);
   }
-  
-  loadDebugInfoIfAvailable();
-  
+  //#include <stdio.h>
+  if(!loadDebugInfoIfAvailable())
+    *retval = -1;
+
   //memcpy(userspace_debug_info_, loader.userspace_debug_info_, sizeof(Stabs2DebugInfo));
 }
