@@ -39,7 +39,7 @@ inline bool PageFaultHandler::checkPageFaultIsValid(size_t address, bool user,
     {
       debug(COW, "Copy Page / Set writeable\n");
       currentThread->handled_cow = true;
-      ArchMemory::copyPage(currentThread->loader_->arch_memory_.page_map_level_4_, address);
+      ArchMemory::copyPage(currentThread->loader_->arch_memory_, address);
       return true;
     }
   }

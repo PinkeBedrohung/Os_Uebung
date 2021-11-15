@@ -3,6 +3,7 @@
 #include "types.h"
 #include "offsets.h"
 #include "paging-definitions.h"
+#include "Mutex.h"
 
 class ArchMemoryMapping
 {
@@ -99,8 +100,8 @@ public:
   static void printMemoryMapping(ArchMemoryMapping* mapping);
   static void setKernelPagingPML4(uint64 pml4_ppn, uint64 new_pml4_ppn);
 
-  static void copyPagingStructure(uint64 pml4_ppn, uint64 new_pml4_ppn);
-  static void copyPage(uint64 pml4_ppn, uint64 address);
+  static void copyPagingStructure(ArchMemory &archmemory, uint64 new_pml4_ppn);
+  static void copyPage(ArchMemory &archmemory, uint64 address);
   /**
    *
    * maps a virtual page to a physical page in kernel mapping
@@ -119,6 +120,7 @@ public:
   static void unmapKernelPage(uint64 virtual_page);
 
   uint64 page_map_level_4_;
+  Mutex archmem_lock_;
 
   uint64 getRootOfPagingStructure();
   static PageMapLevel4Entry* getRootOfKernelPagingStructure();

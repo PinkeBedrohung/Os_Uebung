@@ -36,8 +36,8 @@ UserThread::UserThread(UserProcess* process,  void* (*routine)(void*), void* arg
     to_cancel_ = false;
 
     debug(USERTHREAD, "ATTENTION: Not first Thread\n, setting rdi:%zu , and rsi:%zu\n", (size_t)routine,(size_t)args);
-    ArchThreads::atomic_set(this->user_registers_->rdi, (size_t)routine);
-    ArchThreads::atomic_set(this->user_registers_->rsi, (size_t)args);
+    user_registers_->rdi = (size_t)routine;
+    user_registers_->rsi = (size_t)args;
     
 }
 
@@ -128,6 +128,7 @@ void UserThread::allocatePage(char const *arg[], Loader* loader, int32_t fd)
     fd_ = fd;
     page_offset_ = (size_t)(current_v_address);
     //switch_to_userspace_ = 1;
+   
 }
 
 void UserThread::createThread(void* entry_function)
