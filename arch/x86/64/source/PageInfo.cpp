@@ -10,12 +10,12 @@ PageInfo::~PageInfo()
     
 }
 
-int64 PageInfo::getRefCount()
+uint64 PageInfo::getRefCount()
 {
-
+    return ref_count;
 }
 
 void PageInfo::setRefCount(uint64 value)
 {
-
+    ref_count = value;
 }

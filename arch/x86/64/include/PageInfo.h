@@ -9,9 +9,9 @@ public:
   PageInfo();
   ~PageInfo();
 
-  int64 getRefCount();
+  uint64 getRefCount();
   void setRefCount(uint64 value);
 
 private:
-  int64 ref_count;
+  uint64 ref_count;
 };
