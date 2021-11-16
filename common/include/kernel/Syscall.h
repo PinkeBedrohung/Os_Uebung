@@ -26,6 +26,7 @@ class Syscall
   static size_t createThread(size_t thread, size_t attr, size_t start_routine, size_t arg, size_t entry_function);
   static void exitThread(size_t retval);
   static size_t joinThread(size_t thread, void** value_ptr);
+  static size_t detachThread(size_t tid);
   static size_t clock();
   static size_t sleep(unsigned int seconds);
   static size_t cancelThread(size_t tid);

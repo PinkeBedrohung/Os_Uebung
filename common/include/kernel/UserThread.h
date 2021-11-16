@@ -14,6 +14,12 @@ private:
     uint32 terminal_number_;
 
 public:
+
+    enum JoinableState
+    {
+    JOINABLE, DETACHED
+    };
+
     UserThread(UserProcess *process);
     UserThread(UserThread &thread, UserProcess* process = NULL);
     UserThread(UserProcess *process,  void* (*start_routine)(void*), void* args, void* entry_function);
@@ -22,12 +28,15 @@ public:
     UserProcess *getProcess();
     void copyRegisters(UserThread *thread);
     bool chainJoin(size_t thread);
+    bool isStateJoinable();
+    size_t setStateDetached();
     UserThread* join_;
     Condition alive_cond_;
     bool to_cancel_;
     Mutex cancel_lock_;
     bool first_thread_;
     size_t retval_;
+    size_t is_joinable_;
 private:
     void createThread(void* entry_function);
     size_t page_offset_;
