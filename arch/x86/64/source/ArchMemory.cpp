@@ -63,10 +63,10 @@ bool ArchMemory::unmapPage(uint64 virtual_page)
   m.pt[m.pti].present = 0;
   pageInfo[m.pt[m.pti].page_ppn].decRefCount();
 
-  debug(COW, "Unmap Page REF Count: %ld, PPN: %ld\n", pageInfo[m.pt[m.pti].page_ppn].getRefCount(), m.pt[m.pti].page_ppn);
+  //debug(COW, "Unmap Page REF Count: %ld, PPN: %ld\n", pageInfo[m.pt[m.pti].page_ppn].getRefCount(), m.pt[m.pti].page_ppn);
   if(pageInfo[m.pt[m.pti].page_ppn].getRefCount() == 0)
   {
-    debug(COW, "Unmap Page PPN: %ld\n", m.pt[m.pti].page_ppn);
+    //debug(COW, "Unmap Page PPN: %ld\n", m.pt[m.pti].page_ppn);
     
     PageManager::instance()->freePPN(m.page_ppn);
   }
@@ -177,7 +177,7 @@ ArchMemory::~ArchMemory()
                   pt[pti].present = 0;
                   
                   pageInfo[pt[pti].page_ppn].decRefCount();
-                  debug(COW, "REF Count: %ld, PPN: %ld\n", pageInfo[pt[pti].page_ppn].getRefCount(), pt[pti].page_ppn);
+                  //debug(COW, "REF Count: %ld, PPN: %ld\n", pageInfo[pt[pti].page_ppn].getRefCount(), pt[pti].page_ppn);
 
                   if(pageInfo[pt[pti].page_ppn].getRefCount() == 0)
                   {
@@ -606,7 +606,7 @@ void ArchMemory::copyPage(ArchMemory &archmemory, uint64 address)
 
                     memcpy((void*)getIdentAddressOfPPN(pt[pti].page_ppn), (void*)getIdentAddressOfPPN(old_page_ppn), PAGE_SIZE);
                     pageInfo[old_page_ppn].unlockRefCount();
-                    debug(COW, "Copied Page PPN: %ld to new PPN: %ld\n", old_page_ppn, pt[pti].page_ppn);
+                    //debug(COW, "Copied Page PPN: %ld to new PPN: %ld\n", old_page_ppn, pt[pti].page_ppn);
                   }
                   else
                   {
