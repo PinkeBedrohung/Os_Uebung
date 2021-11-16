@@ -23,6 +23,7 @@ UserThread::UserThread(UserProcess* process) :
     to_cancel_ = false;
     first_thread_ = false;
     retval_ = 0;
+    is_joinable_ = JOINABLE;
 }
 
 UserThread::UserThread(UserProcess* process,  void* (*routine)(void*), void* args, void* entry_function) :
@@ -36,6 +37,7 @@ UserThread::UserThread(UserProcess* process,  void* (*routine)(void*), void* arg
     join_ = NULL;
     to_cancel_ = false;
     retval_ = 0;
+    is_joinable_ = JOINABLE;
 
     debug(USERTHREAD, "ATTENTION: Not first Thread\n, setting rdi:%zu , and rsi:%zu\n", (size_t)routine,(size_t)args);
     user_registers_->rdi = (size_t)routine;
@@ -80,6 +82,7 @@ UserThread::UserThread(UserThread &thread, UserProcess* process) :
         setTerminal(main_console->getTerminal(terminal_number_));
 
     page_offset_ = thread.page_offset_;
+    is_joinable_ = thread.is_joinable_;
     copyRegisters(&thread);
     ArchThreads::setAddressSpace(this, loader_->arch_memory_);
     switch_to_userspace_ = 1;
@@ -129,5 +132,24 @@ bool UserThread::chainJoin(size_t thread)
         joiner = joiner->join_;
     }
     return false;
+}
+
+bool UserThread::isStateJoinable()
+{
+    if(is_joinable_ == JOINABLE)
+        return true;
+    else
+        return false;
+}
+
+size_t UserThread::setStateDetached()
+{
+    if(isStateJoinable())
+    {
+        is_joinable_ = DETACHED;
+        return 0;
+    }
+    else
+        return -1;
 }
 
