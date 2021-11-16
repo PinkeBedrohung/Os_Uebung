@@ -45,7 +45,7 @@ UserThread::UserThread(UserProcess* process,  void* (*routine)(void*), void* arg
 void UserThread::createThread(void* entry_function)
 {
     size_t page_for_stack = PageManager::instance()->allocPPN();
-    page_offset_ = getTID() + 1; //guard pages
+    page_offset_ = getTID(); //guard pages
 
     size_t stack_address = (size_t) (USER_BREAK - sizeof(pointer) - (PAGE_SIZE * page_offset_));
     

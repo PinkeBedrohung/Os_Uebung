@@ -83,6 +83,11 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     default:
       kprintf("Syscall::syscall_exception: Unimplemented Syscall Number %zd\n", syscall_number);
   }
+  if(((UserThread*)currentThread)->to_cancel_)
+  {
+    currentThread->kill();
+    return 0;
+  }
   return return_value;
 }
 
@@ -224,7 +229,7 @@ size_t Syscall::fork()
 size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, size_t arg, size_t entry_function)
 {
   if((size_t)start_routine >= USER_BREAK || (size_t)arg >= USER_BREAK || thread == 0 || start_routine == 0 || entry_function == 0 || entry_function >= USER_BREAK) return -1U;
-  if((size_t)thread < USER_BREAK || (size_t)attr < USER_BREAK || (size_t)start_routine < USER_BREAK)
+  if((size_t)thread < USER_BREAK && (size_t)attr < USER_BREAK && (size_t)start_routine < USER_BREAK)
   {
     UserProcess* uprocess = ((UserThread*)currentThread)->getProcess();
     return uprocess->createUserThread((size_t*) thread, (void* (*)(void*))start_routine, (void*) arg, (void*) entry_function);
@@ -239,7 +244,6 @@ void Syscall::exitThread(size_t retval)
   //TODO: when a thread is cancelled, store -1 in retval so join can also return -1 as PTHREAD_CANCELED
   //TODO unmap pages and delete user regs
   //TODO check for kernel address
-  //TODO create test
   ((UserThread*)currentThread)->retval_ = retval;
 
   currentThread->kill();
