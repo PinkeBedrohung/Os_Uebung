@@ -83,6 +83,11 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     default:
       kprintf("Syscall::syscall_exception: Unimplemented Syscall Number %zd\n", syscall_number);
   }
+  if(((UserThread*)currentThread)->to_cancel_)
+  {
+    currentThread->kill();
+    return 0;
+  }
   return return_value;
 }
 
@@ -239,7 +244,6 @@ void Syscall::exitThread(size_t retval)
   //TODO: when a thread is cancelled, store -1 in retval so join can also return -1 as PTHREAD_CANCELED
   //TODO unmap pages and delete user regs
   //TODO check for kernel address
-  //TODO create test
   ((UserThread*)currentThread)->retval_ = retval;
 
   currentThread->kill();
