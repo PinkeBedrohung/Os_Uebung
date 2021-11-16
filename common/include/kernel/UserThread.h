@@ -21,7 +21,7 @@ public:
     virtual void Run(); // not used
     UserProcess *getProcess();
     void copyRegisters(UserThread *thread);
-    void allocatePage(char const *arg[],Loader* loader,int32_t fd);
+    void allocatePage(char** argv, int argv_size);
 
     
     bool chainJoin(size_t thread);

@@ -10,6 +10,7 @@
 #include "ArchThreads.h"
 #include "offsets.h"
 #include "UserProcess.h"
+#include "ulist.h"
 
 UserThread::UserThread(UserProcess* process) :
         Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD)
@@ -41,14 +42,17 @@ UserThread::UserThread(UserProcess* process,  void* (*routine)(void*), void* arg
     
 }
 
-void UserThread::allocatePage(char const *arg[], Loader* loader, int32_t fd)
+void UserThread::allocatePage(char** argv, int argv_size)
 {
     //loader_ = process_->getLoader();
     //ArchMemory arguments;
     //arguments.mapPage(kernel_stack_);
    // size_t page_offset = page_offset_;
+
     size_t page_for_stack = PageManager::instance()->allocPPN();
-    bool vpn_mapped = loader->arch_memory_.mapPage(USER_BREAK / PAGE_SIZE -1 , page_for_stack, 1);
+    bool vpn_mapped = loader_->arch_memory_.mapPage(USER_BREAK / PAGE_SIZE -1 , page_for_stack, 1);
+    assert(vpn_mapped && "Virtual page for stack was already mapped - this should never happen");
+    vpn_mapped = loader_->arch_memory_.mapPage(USER_BREAK / PAGE_SIZE -2 , page_for_stack, 1);
     assert(vpn_mapped && "Virtual page for stack was already mapped - this should never happen");
     
     void* virtual_stack_address = (void*) ((USER_BREAK / PAGE_SIZE -1) * PAGE_SIZE );
@@ -57,61 +61,82 @@ void UserThread::allocatePage(char const *arg[], Loader* loader, int32_t fd)
     size_t arg_counter = 1; // nullpointer not counted
     size_t member_counter = 1;
     void* current_v_address;
-   ArchThreads::createUserRegisters(user_registers_, loader->getEntryFunction(), (void*) ((size_t)(virtual_stack_address) + PAGE_SIZE - sizeof(pointer)), getKernelStackStartPointer());
-   // ArchThreads::setAddressSpace(this, loader_->arch_memory_);
-    
-    debug(USERTHREAD,"entry function = %p \n" , loader->getEntryFunction());
-    if (arg == NULL)
+
+    delete user_registers_;
+    ArchThreads::createUserRegisters(user_registers_, loader_->getEntryFunction(), (void *)((size_t)(virtual_stack_address) + PAGE_SIZE - sizeof(pointer)), getKernelStackStartPointer());
+    ArchThreads::setAddressSpace(this, loader_->arch_memory_);
+
+    debug(USERTHREAD, "entry function = %p \n", loader_->getEntryFunction());
+    if (argv == NULL)
     {
-    /*user_registers_->rdi = arg_counter;
+        /*user_registers_->rdi = arg_counter;
     user_registers_->rsi = (size_t)new_arg;
     */
-    //user_registers_->rbp = (size_t)((size_t*)virtual_stack_address)-1;
-    //user_registers_->rsp = (size_t)((size_t*)virtual_stack_address)-1;
-    //ArchThreads::createUserRegisters(user_registers_,loader->getEntryFunction(),virtual_stack_address, getKernelStackStartPointer());
-    //user_registers_->rdi = (size_t)((size_t*)virtual_stack_address)-1;
-    //user_registers_->rsi = arg_counter;
-    //ArchThreads::atomic_set(this->user_registers_->rdi, (size_t)routine);
-    //ArchThreads::atomic_set(this->user_registers_->rsi, (size_t)args);
-    //user_registers_->rsi = (size_t)new_arg;
-    
-    
-        debug(USERTHREAD,"arg are NULL\n");
+        //user_registers_->rbp = (size_t)((size_t*)virtual_stack_address)-1;
+        //user_registers_->rsp = (size_t)((size_t*)virtual_stack_address)-1;
+        //ArchThreads::createUserRegisters(user_registers_,loader->getEntryFunction(),virtual_stack_address, getKernelStackStartPointer());
+        //user_registers_->rdi = (size_t)((size_t*)virtual_stack_address)-1;
+        //user_registers_->rsi = arg_counter;
+        //ArchThreads::atomic_set(this->user_registers_->rdi, (size_t)routine);
+        //ArchThreads::atomic_set(this->user_registers_->rsi, (size_t)args);
+        //user_registers_->rsi = (size_t)new_arg;
+
+        debug(USERTHREAD, "args are NULL\n");
 
     }
     else 
     {
-        debug(MAIN,"args AR NOT NULL \n");
-        for(size_t i = 0; arg[i] != NULL ; i++)
-        {    
+        debug(EXEC,"args are NOT NULL \n");
+        ustl::list<int> chars_per_arg;
+        int char_counter;
+        for (size_t i = 0; argv[i] != NULL; i++)
+        {
             arg_counter++;
-            for(size_t pi = 0 ; arg[i][pi]!= '\0' ; pi++)
+            char_counter = 1;
+            for (size_t pi = 0; argv[i][pi] != '\0'; pi++)
             {
-                member_counter++;
-            } 
-            debug(MAIN,"1\n");
-        }     
-        size_t offset = (member_counter + arg_counter) * sizeof(char) + (arg_counter+1) * sizeof(void*);
-        arg_counter++;
-        new_arg = (char**)virtual_stack_address - offset;
-        current_v_address = (void*)((size_t)((size_t*)virtual_stack_address) - offset + arg_counter * sizeof(void*));
-
-        for(size_t i = 0; i < arg_counter; i++ )
-        { 
-        new_arg[i] = (char*)current_v_address;
-        member_counter = 0;
-            for(size_t pi = 0 ; arg[i][pi]!= '\0' ; pi++)
-            {
+                char_counter++;
                 member_counter++;
             }
-            member_counter++;
-            
-            for(size_t pi = 0 ; pi < member_counter ; pi++)
+            chars_per_arg.insert(chars_per_arg.end(), char_counter);
+            debug(EXEC, "1\n");
+        }     
+
+        (void) argv_size;
+
+        size_t offset = (member_counter + arg_counter) * sizeof(char) + (arg_counter+1) * sizeof(void*);
+        arg_counter++;
+
+        new_arg = (char**)virtual_stack_address - offset;
+        current_v_address = (void*)((size_t)((size_t*)virtual_stack_address) - offset); //+ arg_counter * sizeof(void*));
+
+        char** argv_pointer = (char**)current_v_address;
+
+        ArchMemoryMapping m = loader_->arch_memory_.resolveMapping(((size_t)(argv_pointer))/PAGE_SIZE);
+        ArchMemory::printMemoryMapping(&m);
+        debug(EXEC, "PPN present: %ld\n",m.pt[m.pti].present);
+
+        ArchMemoryMapping d = loader_->arch_memory_.resolveMapping(((size_t)(USER_BREAK)/PAGE_SIZE - 1));
+        ArchMemory::printMemoryMapping(&d);
+        debug(EXEC, "PPN present: %ld\n",d.pt[d.pti].present);
+
+        size_t halt = 0;
+        for (size_t i = 0; i < arg_counter; i++)
+        {
+            char **argv_element = (argv_pointer + i);
+            *argv_element = (char *)((size_t)current_v_address + arg_counter + chars_per_arg.at(i));
+            char *argv_inside = *argv_element;
+            halt = (size_t)argv_inside;
+            (void)halt;
+
+            for (int char_index = 0; char_index < chars_per_arg.at(i); char_index++)
             {
-            
-            new_arg[i][pi] = arg[i][pi];
-            }          
-            current_v_address = (void*)((size_t)((size_t*)current_v_address) + sizeof(char)*member_counter);         
+                char* argv_char_pointer = *argv_element+char_index;
+                *argv_char_pointer = argv[i][char_index];
+                char argv_char = *argv_char_pointer;
+                halt = (size_t)argv_char;
+                (void)halt;
+            }
         }      
         user_registers_->rdi = arg_counter;
         user_registers_->rsi = (size_t)new_arg;
@@ -122,10 +147,10 @@ void UserThread::allocatePage(char const *arg[], Loader* loader, int32_t fd)
     }
    // user_registers_->rip = (size_t)loader->getEntryFunction();
   // user_registers_->rip = (size_t)virtual_stack_address;
-    debug(USERTHREAD,"PML4 ======== %ld \n" , loader->arch_memory_.page_map_level_4_);
     debug(USERTHREAD,"PML4 ======== %ld \n" , loader_->arch_memory_.page_map_level_4_);
+    
     name_ = process_->getFilename();
-    fd_ = fd;
+    fd_ = process_->getFd();
     page_offset_ = (size_t)(current_v_address);
     //switch_to_userspace_ = 1;
    

@@ -56,6 +56,7 @@ const size_t PAGEFAULT          = Ansi_Green | OUTPUT_ENABLED;
 const size_t CPU_ERROR          = Ansi_Red   | OUTPUT_ENABLED;
 const size_t KMM                = Ansi_Yellow;
 const size_t COW                = Ansi_Magenta| OUTPUT_ENABLED;
+const size_t EXEC               = Ansi_Red    | OUTPUT_ENABLED;
 
 //group driver
 const size_t DRIVER             = Ansi_Yellow;
@@ -66,7 +67,7 @@ const size_t MMC_DRIVER         = Ansi_Yellow;
 //group arch
 const size_t A_BOOT             = Ansi_Yellow | OUTPUT_ENABLED;
 const size_t A_COMMON           = Ansi_Yellow;
-const size_t A_MEMORY           = Ansi_Yellow;
+const size_t A_MEMORY           = Ansi_Yellow | OUTPUT_ENABLED;
 const size_t A_SERIALPORT       = Ansi_Yellow;
 const size_t A_KB_MANAGER       = Ansi_Yellow;
 const size_t A_INTERRUPTS       = Ansi_Yellow;
