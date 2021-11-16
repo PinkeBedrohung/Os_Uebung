@@ -226,7 +226,7 @@ size_t Syscall::fork()
 
 size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, size_t arg, size_t entry_function)
 {
-  if((size_t)start_routine >= USER_BREAK || (size_t)arg >= USER_BREAK) return -1U;
+  if((size_t)start_routine >= USER_BREAK || (size_t)arg >= USER_BREAK || thread == 0 || start_routine == 0 || entry_function == 0 || entry_function >= USER_BREAK) return -1U;
   if((size_t)thread < USER_BREAK || (size_t)attr < USER_BREAK || (size_t)start_routine < USER_BREAK)
   {
     UserProcess* uprocess = ((UserThread*)currentThread)->getProcess();
