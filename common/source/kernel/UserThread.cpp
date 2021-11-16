@@ -22,6 +22,7 @@ UserThread::UserThread(UserProcess* process) :
     join_ = NULL;
     to_cancel_ = false;
     first_thread_ = false;
+    retval_ = 0;
 }
 
 UserThread::UserThread(UserProcess* process,  void* (*routine)(void*), void* args, void* entry_function) :
@@ -34,6 +35,7 @@ UserThread::UserThread(UserProcess* process,  void* (*routine)(void*), void* arg
     createThread(entry_function);
     join_ = NULL;
     to_cancel_ = false;
+    retval_ = 0;
 
     debug(USERTHREAD, "ATTENTION: Not first Thread\n, setting rdi:%zu , and rsi:%zu\n", (size_t)routine,(size_t)args);
     user_registers_->rdi = (size_t)routine;
@@ -87,12 +89,10 @@ UserThread::~UserThread()
 {
     assert(Scheduler::instance()->isCurrentlyCleaningUp());
 
-    debug(USERTHREAD, "~UserThread - TID %zu\n", getTID());
-    process_->alive_lock_.acquire();
-    alive_cond_.broadcast();
-    process_->alive_lock_.release();
+    process_->mapRetVals(getTID(), (void*) retval_);
 
-    process_->removeThread(this);
+    debug(USERTHREAD, "~UserThread - TID %zu\n", getTID());
+    
 
     if (process_->getLoader() != nullptr && !first_thread_)
         loader_->arch_memory_.unmapPage(USER_BREAK / PAGE_SIZE - page_offset_ - 1);

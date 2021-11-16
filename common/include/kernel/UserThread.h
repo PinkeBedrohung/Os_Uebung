@@ -21,13 +21,13 @@ public:
     virtual void Run(); // not used
     UserProcess *getProcess();
     void copyRegisters(UserThread *thread);
-    
     bool chainJoin(size_t thread);
     UserThread* join_;
     Condition alive_cond_;
     bool to_cancel_;
     Mutex cancel_lock_;
     bool first_thread_;
+    size_t retval_;
 private:
     void createThread(void* entry_function);
     size_t page_offset_;

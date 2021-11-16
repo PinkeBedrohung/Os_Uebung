@@ -166,6 +166,11 @@ void UserProcess::removeThread(Thread *thread){
   assert(thread);
 
   threads_lock_.acquire();
+
+  alive_lock_.acquire();
+  ((UserThread*)thread)->alive_cond_.broadcast();
+  alive_lock_.release();
+
   for (auto it = threads_.begin(); it != threads_.end(); it++)
   {
     if ((*it)->getTID() == thread->getTID())
@@ -253,6 +258,7 @@ size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void*
 
 void UserProcess::mapRetVals(size_t tid, void* retval)
 {
+  //TODO if detached don't store anything in mapretvals
   retvals_lock_.acquire();
   retvals_.insert(ustl::make_pair(tid, retval));
   retvals_lock_.release();

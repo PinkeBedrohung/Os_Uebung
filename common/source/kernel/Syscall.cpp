@@ -237,10 +237,11 @@ size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, s
 void Syscall::exitThread(size_t retval)
 {
   //TODO: when a thread is cancelled, store -1 in retval so join can also return -1 as PTHREAD_CANCELED
-  
-    UserProcess* process = ((UserThread*)currentThread)->getProcess();
-    process->mapRetVals(currentThread->getTID(), (void*) retval);
-  
+  //TODO unmap pages and delete user regs
+  //TODO check for kernel address
+  //TODO create test
+  ((UserThread*)currentThread)->retval_ = retval;
+
   currentThread->kill();
 }
 
@@ -273,16 +274,19 @@ size_t Syscall::sleep(unsigned int seconds)
 size_t Syscall::joinThread(size_t thread, void** value_ptr)
 {
   
-  if(thread == NULL)
+  // if(thread == NULL)
+  // {
+  //   //debug(SYSCALL, "Thread to be joined is non-existent!\n");
+  //   return (size_t)-1U;
+  // }
+
+  // TODO: is join thread detached? if so return!
+
+  if((uint64)value_ptr > USER_BREAK && value_ptr != NULL)
   {
-    //debug(SYSCALL, "Thread to be joined is non-existent!\n");
-    return (size_t)-1U;
+    //debug(SYSCALL, "Return value address not in user space")
+    return (size_t) -1U;
   }
-
-
-  // TODO
-  // check if the thread was canceled and pass the PTHREAD_CANCELED to value_ptr
-  // SOLVED: exit will pass -1 as retval when cancel is called
 
   UserThread* calling_thread = ((UserThread*)currentThread);
   UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
@@ -299,42 +303,33 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
   {
     current_process->retvals_lock_.release();
 
-    //TODO check if other thread in join chain of thread_to_join is waiting for our calling_thread to avoid join deadlock
     if(calling_thread->chainJoin(thread_to_join->getTID()))
     {
       return (size_t) -1U;
     }
-  
-    //current_process->threads_lock_.acquire();
+    
+    current_process->threads_lock_.acquire();
     calling_thread->join_ = thread_to_join;
     current_process->alive_lock_.acquire();
-    //current_process->threads_lock_.release();
+    current_process->threads_lock_.release();
     thread_to_join->alive_cond_.waitAndRelease();
     calling_thread->join_ = NULL;
   }
-
-  if(current_process->retvals_lock_.isHeldBy(currentThread))
-  {
+  else 
     current_process->retvals_lock_.release();
-  }
-  
 
-  if(value_ptr != NULL)
-  {
-    if((uint64)value_ptr <= USER_BREAK && 
-       current_process->retvals_.find(thread) != current_process->retvals_.end())
-      *value_ptr = current_process->retvals_.at(thread);
-    else
-      return (size_t) -1U;
-  }
+  if(current_process->retvals_.find(thread) != current_process->retvals_.end()
+    && value_ptr != NULL)
+    *value_ptr = current_process->retvals_.at(thread);
 
   return (size_t) 0;
 }
 
+// when implementing asynchronous, cancellation points: Scheduler , page fault
 size_t Syscall::cancelThread(size_t tid)
 {
   UserProcess* process = ((UserThread*)currentThread)->getProcess();
-  process->mapRetVals(tid, (void*) -1);
+  ((UserThread*)currentThread)->retval_ = -1;
   debug(SYSCALL, "Calling cancelUserThread on Thread: %ld\n", tid);
   return process->cancelUserThread(tid);
 }
