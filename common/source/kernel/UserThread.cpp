@@ -89,8 +89,6 @@ UserThread::~UserThread()
 {
     assert(Scheduler::instance()->isCurrentlyCleaningUp());
 
-    process_->mapRetVals(getTID(), (void*) retval_);
-
     debug(USERTHREAD, "~UserThread - TID %zu\n", getTID());
     
 

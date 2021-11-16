@@ -167,6 +167,8 @@ void UserProcess::removeThread(Thread *thread){
 
   threads_lock_.acquire();
 
+  mapRetVals(thread->getTID(), (void*) ((UserThread*)thread)->retval_);
+
   alive_lock_.acquire();
   ((UserThread*)thread)->alive_cond_.broadcast();
   alive_lock_.release();
