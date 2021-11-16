@@ -3,7 +3,7 @@
 #include "ArchThreads.h"
 
 
-PageInfo::PageInfo(): ref_count_(0), ref_lock_("PageInfo::ref_lock_")
+PageInfo::PageInfo(): ref_count_(0), ref_lock_("PageInfo::ref_lock_"), page_free_(false)
 {
 }
 
@@ -27,6 +27,7 @@ void PageInfo::incRefCount()
 {
     assert(ref_lock_.isHeldBy(currentThread));
     ref_count_++;
+    page_free_ = false;
 }
 
 bool PageInfo::decRefCount()
@@ -54,6 +55,17 @@ void PageInfo::unlockRefCount()
 {
     assert(ref_lock_.isHeldBy(currentThread));
     ref_lock_.release();
+}
+
+bool PageInfo::isPageFree()
+{
+    assert(ref_lock_.isHeldBy(currentThread));
+    return page_free_;
+}
+
+void PageInfo::setPageFree(bool cond)
+{
+    page_free_ = cond;
 }
 /*
 uint64 PageInfo::getUnsafeRefCount()

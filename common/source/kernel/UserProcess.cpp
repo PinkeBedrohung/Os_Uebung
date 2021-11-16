@@ -11,6 +11,7 @@
 #include "offsets.h"
 #include "UserThread.h"
 #include "kmalloc.h"
+#include "kstring.h"
 
 UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 pid, uint32 terminal_number) : 
         //holding_cow_(false),
@@ -326,55 +327,56 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   
   ustl::list<int> chars_per_arg;
 
-  for (size_t i = 0; arg[i] != NULL; i++)
+  if(arg != NULL)
   {
-    char_counter = 1;
-    for (size_t pi = 0; arg[i][pi] != '\0'; pi++)
+    for (size_t i = 0; arg[i] != NULL; i++)
     {
-      char_counter++;
+      char_counter = 1;
+      for (size_t pi = 0; arg[i][pi] != '\0'; pi++)
+      {
+        char_counter++;
+      }
+      debug(EXEC, "char_counter: %d\n", char_counter);
+      chars_per_arg.insert(chars_per_arg.end(), char_counter);
     }
-    debug(EXEC, "char_counter: %d\n", char_counter);
-        chars_per_arg.insert(chars_per_arg.end(), char_counter);
   }
 
-  char **argv = (char**)kmalloc(((size_t)chars_per_arg.size()) * sizeof(char*));
+  char **argv = (char**)kmalloc(((size_t)chars_per_arg.size() + 1) * sizeof(char*));
 
   int argv_size = 1;
   for (int arg_index = 0; arg_index < (int)chars_per_arg.size(); arg_index++)
   {
     argv_size++;
-    char *arg = (char *)kmalloc(((size_t)chars_per_arg.at(arg_index)) * sizeof(char));
-    argv[arg_index] = arg;
+    char *arg_p = (char *)kmalloc(((size_t)chars_per_arg.at(arg_index)) * sizeof(char));
+    memcpy((void*)arg_p, (void *)(size_t)arg[arg_index], (size_t)chars_per_arg.at(arg_index));
+    argv[arg_index] = arg_p;
   }
 
-  argv[(size_t)chars_per_arg.size() - 1] = NULL;
+  argv[(size_t)chars_per_arg.size()] = NULL;
 
   Loader *old_loader = loader_;
+  ssize_t old_fd = fd_;
   loader_ = loader;
+  fd_=fd;
   currentThread->loader_ = loader;
   
   //ArchThreads::setAddressSpace(currentThread, loader_->arch_memory_);
-  ((UserThread*)currentThread)->allocatePage(argv, argv_size);
+  ((UserThread*)currentThread)->allocatePage(argv);
 
   delete old_loader;
-  
- 
-  ArchThreads::printThreadRegisters(currentThread);
-  // loader->printLoader();
-  // loader_->printLoader();
-
-
-  ssize_t old_fd = fd_;
-
- 
-  
-  fd_=fd;
-  
-  
-  //ArchThreads::setAddressSpace(currentThread, loader_->arch_memory_);
   VfsSyscall::close(old_fd);
-  Scheduler::instance()->yield();
+
+  for (size_t i = 0; argv[i] != NULL; i++)
+  {
+    delete argv[i];
+  }
+  delete argv;
+
+  ArchThreads::printThreadRegisters(currentThread);
+
   currentThread->switch_to_userspace_ = 1;
+  Scheduler::instance()->yield();
+  
   return 0;
 }
   

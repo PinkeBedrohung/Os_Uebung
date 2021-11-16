@@ -21,7 +21,7 @@ public:
     virtual void Run(); // not used
     UserProcess *getProcess();
     void copyRegisters(UserThread *thread);
-    void allocatePage(char** argv, int argv_size);
+    void allocatePage(char** argv);
 
     
     bool chainJoin(size_t thread);
@@ -33,4 +33,5 @@ public:
 private:
     void createThread(void* entry_function);
     size_t page_offset_;
+    ustl::list<size_t> page_offsets_;
 };

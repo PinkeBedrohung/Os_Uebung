@@ -16,6 +16,8 @@ public:
   Mutex *getRefLock();
   void lockRefCount();
   void unlockRefCount();
+  bool isPageFree();
+  void setPageFree(bool cond);
   /*
   uint64 getUnsafeRefCount();
   void setUnsafeRefCount(uint64 value);
@@ -24,4 +26,5 @@ public:
 private:
   uint64 ref_count_;
   Mutex ref_lock_;
+  bool page_free_;
 };
