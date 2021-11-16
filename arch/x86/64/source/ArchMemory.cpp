@@ -181,7 +181,7 @@ ArchMemory::~ArchMemory()
 
                   if(pageInfo[pt[pti].page_ppn].getRefCount() == 0)
                   {
-                    debug(COW, "Free page PPN: %d\n", pt[pti].page_ppn);
+                    //debug(COW, "Free page PPN: %d\n", pt[pti].page_ppn);
                     PageManager::instance()->freePPN(pt[pti].page_ppn);
                   }
                   pageInfo[pt[pti].page_ppn].unlockRefCount();
