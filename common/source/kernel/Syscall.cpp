@@ -341,7 +341,7 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
 size_t Syscall::cancelThread(size_t tid)
 {
   UserProcess* process = ((UserThread*)currentThread)->getProcess();
-  ((UserThread*)currentThread)->retval_ = -1;
+  ((UserThread*)currentThread)->retval_ = -1; //TODO: define as constant
   debug(SYSCALL, "Calling cancelUserThread on Thread: %ld\n", tid);
   return process->cancelUserThread(tid);
 }
