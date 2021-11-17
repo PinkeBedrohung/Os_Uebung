@@ -32,7 +32,7 @@ public:
     void copyRegisters(UserThread *thread);
     void execStackSetup(char** argv , ustl::list<int> &chars_per_arg);
 
-    
+    bool checkIfLastThread();
     bool chainJoin(size_t thread);
     bool isStateJoinable();
     size_t setStateDetached();

@@ -57,6 +57,7 @@ const size_t CPU_ERROR          = Ansi_Red   | OUTPUT_ENABLED;
 const size_t KMM                = Ansi_Yellow;
 const size_t COW                = Ansi_Magenta| OUTPUT_ENABLED;
 const size_t EXEC               = Ansi_Red    | OUTPUT_ENABLED;
+const size_t WAIT_PID           = Ansi_Red   | OUTPUT_ENABLED;
 
 //group driver
 const size_t DRIVER             = Ansi_Yellow;

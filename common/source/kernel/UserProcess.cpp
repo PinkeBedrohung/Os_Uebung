@@ -90,17 +90,10 @@ UserProcess::~UserProcess()
 
   if (fd_ > 0)
   {
-    /*
-    (*binary_fd_counter_)--;
-
-    if(*binary_fd_counter_ == 0)
-    {
-      */
-      //delete binary_fd_counter_;
-      VfsSyscall::close(fd_);
-    //}
+    VfsSyscall::close(fd_);
   }
-  ProcessRegistry::instance()->releasePID(pid_);
+  
+  //ProcessRegistry::instance()->releasePID(pid_);
   ProcessRegistry::instance()->processExit();
 }
 
@@ -256,7 +249,7 @@ size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void*
   Thread* thread = new UserThread(this, routine, args, entry_function);
   threads_lock_.acquire();
   if(thread != NULL)
-  {
+  {  
     threads_.push_back(thread);
     num_threads_++;
 
@@ -372,7 +365,11 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   ((UserThread*)currentThread)->execStackSetup(argv,chars_per_arg);
 
   delete old_loader;
-  VfsSyscall::close(old_fd);
+
+  if (old_fd > 0)
+  {
+    VfsSyscall::close(old_fd);
+  }
 
   for (size_t i = 0; argv[i] != NULL; i++)
   {
@@ -382,7 +379,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
 
   while (chars_per_arg.size() != 0)
   {
-      chars_per_arg.pop_front();
+    chars_per_arg.pop_front();
   }
 
   ArchThreads::printThreadRegisters(currentThread);

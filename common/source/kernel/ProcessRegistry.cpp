@@ -11,7 +11,8 @@ ProcessRegistry* ProcessRegistry::instance_ = 0;
 ProcessRegistry::ProcessRegistry(FileSystemInfo *root_fs_info, char const *progs[]) :
     Thread(root_fs_info, "ProcessRegistry", Thread::KERNEL_THREAD), progs_(progs), progs_running_(0),
     counter_lock_("ProcessRegistry::counter_lock_"),
-    all_processes_killed_(&counter_lock_, "ProcessRegistry::all_processes_killed_"), list_lock_("ProcessRegistry::list_lock_")
+    all_processes_killed_(&counter_lock_, "ProcessRegistry::all_processes_killed_"), list_lock_("ProcessRegistry::list_lock_"), 
+    exit_info_lock_("ProcessRegistry::exit_info_lock_")
 {
   instance_ = this; // instance_ is static! -> Singleton-like behaviour
 }
@@ -175,4 +176,56 @@ void ProcessRegistry::releasePID(size_t pid){
   list_lock_.release();
   
   debug(PROCESS_REG, "Released PID %zu from the used PID list\n", pid);
+}
+
+bool ProcessRegistry::checkProcessExists(size_t pid)
+{
+  assert(list_lock_.isHeldBy(currentThread));
+
+  for (auto &used_pid : used_pids_)
+  {
+    if(pid == used_pid)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+void ProcessRegistry::lockLists()
+{
+  list_lock_.acquire();
+}
+
+void ProcessRegistry::unlockLists()
+{
+  list_lock_.release();
+}
+
+void ProcessRegistry::addExitInfo(ProcessExitInfo &pexit_info)
+{
+  exit_info_lock_.acquire();
+  pexit_infos_.push_back(pexit_info);
+  exit_info_lock_.release();
+}
+
+ProcessExitInfo ProcessRegistry::getExitInfo(size_t pid)
+{
+  exit_info_lock_.acquire();
+
+  for (ustl::list<ProcessExitInfo>::iterator itr = pexit_infos_.begin(); itr != pexit_infos_.end(); itr++)
+  {
+    if(pid == (*itr).pid_)
+    {
+      ProcessExitInfo ret((*itr).exit_val_, (*itr).pid_);
+      pexit_infos_.erase(itr);
+      releasePID(pid);
+      exit_info_lock_.release();
+      return ret;
+    }
+  }
+
+  exit_info_lock_.release();
+
+  return ProcessExitInfo(-1,-1);
 }

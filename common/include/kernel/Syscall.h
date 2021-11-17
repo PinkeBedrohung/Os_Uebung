@@ -31,5 +31,5 @@ class Syscall
   static size_t sleep(unsigned int seconds);
   static int exec(const char *path,char const* arg[]);
   static size_t cancelThread(size_t tid);
+  static size_t waitpid(size_t pid, pointer status, size_t options);
 };
-

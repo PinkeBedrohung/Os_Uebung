@@ -87,6 +87,9 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     case  sc_exec:
       return_value = exec((const char *)arg1, (char const**)arg2);
       break;
+    case  sc_waitpid:
+      return_value = waitpid(arg1, arg2, arg3);
+      break;
     default:
       kprintf("Syscall::syscall_exception: Unimplemented Syscall Number %zd\n", syscall_number);
   }
@@ -101,6 +104,20 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
 void Syscall::exit(size_t exit_code)
 {
   debug(SYSCALL, "Syscall::EXIT: called, exit_code: %zd\n", exit_code);
+  
+  if(currentThread->getThreadType() == Thread::USER_THREAD)
+  {
+    UserThread *currentUserThread = (UserThread *)currentThread;
+    currentUserThread->getProcess()->threads_lock_.acquire();
+
+    ProcessExitInfo pexit_info(exit_code, currentUserThread->getProcess()->getPID());
+    ProcessRegistry::instance()->lockLists();
+    ProcessRegistry::instance()->addExitInfo(pexit_info);
+    ProcessRegistry::instance()->unlockLists();
+    debug(WAIT_PID, "Process exited - Exit_val: %ld, PID: %ld\n", pexit_info.exit_val_, pexit_info.pid_);
+
+    currentUserThread->getProcess()->threads_lock_.release();
+  }
   currentThread->kill();
 }
 
@@ -315,7 +332,7 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
   // }
 
 
-  if((uint64)value_ptr > USER_BREAK && value_ptr != NULL)
+  if((uint64)value_ptr >= USER_BREAK && value_ptr != NULL)
   {
     //debug(SYSCALL, "Return value address not in user space")
     return (size_t) -1U;
@@ -377,4 +394,18 @@ size_t Syscall::detachThread(size_t tid)
   UserThread* thread = ((UserThread*)current_process->getThread(tid));
 
   return thread->setStateDetached();
+}
+
+size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
+{
+  if(status >= USER_BREAK)
+  {
+    return (size_t) -1UL;
+  }
+
+  (void)pid;
+  (void)status;
+  (void)options;
+  
+  return 0;
 }

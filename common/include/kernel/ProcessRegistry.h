@@ -5,6 +5,7 @@
 #include "Condition.h"
 #include "ulist.h"
 #include "UserProcess.h"
+#include "ProcessExitInfo.h"
 
 class ProcessRegistry : public Thread
 {
@@ -43,6 +44,11 @@ class ProcessRegistry : public Thread
 
     size_t getNewPID();
     void releasePID(size_t pid);
+    bool checkProcessExists(size_t pid);
+    void lockLists();
+    void unlockLists();
+    void addExitInfo(ProcessExitInfo &pexit_info);
+    ProcessExitInfo getExitInfo(size_t pid);
 
   private:
 
@@ -53,7 +59,8 @@ class ProcessRegistry : public Thread
     static ProcessRegistry* instance_;
 
     Mutex list_lock_;
+    Mutex exit_info_lock_;
     ustl::list<size_t> used_pids_;
     ustl::list<size_t> unused_pids_;
-
+    ustl::list<ProcessExitInfo> pexit_infos_;
 };

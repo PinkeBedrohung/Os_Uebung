@@ -211,6 +211,17 @@ void UserThread::copyRegisters(UserThread *thread)
     //memcpy(kernel_registers_, thread->kernel_registers_, sizeof(ArchThreadRegisters));
 }
 
+bool UserThread::checkIfLastThread()
+{
+    assert(process_->threads_lock_.isHeldBy(currentThread));
+    if (process_->getNumThreads() == 0)
+    {
+        return true;
+    }
+
+    return false;
+}
+
 bool UserThread::chainJoin(size_t thread)
 {
     UserThread *joiner = (UserThread *)((UserThread *)currentThread)->getProcess()->getThread(thread);
