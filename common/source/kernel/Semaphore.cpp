@@ -4,7 +4,7 @@
 #include "Scheduler.h"
 #include "ArchThreads.h"
 
-Semaphore::Semaphore(size_t permits) :  value_lock("Semaphore::permits_lock") , permits_(permits) {}
+Semaphore::Semaphore(size_t permits) :  permits_lock("Semaphore::permits_lock") , permits_(permits) {}
 
 void Semaphore::acquire()
 {
