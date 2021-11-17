@@ -3,6 +3,7 @@
 #include "Thread.h"
 #include "Condition.h"
 #include "UserProcess.h"
+#include "ulist.h"
 
 #define MAX_STACK_PAGES 20
 #define MAX_STACK_ARG_PAGES 256
@@ -43,6 +44,7 @@ public:
     bool first_thread_;
     size_t retval_;
     size_t is_joinable_;
+
 private:
     void createThread(void* entry_function);
     size_t page_offset_;

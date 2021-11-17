@@ -167,12 +167,7 @@ void UserProcess::addThread(Thread *thread){
 void UserProcess::removeThread(Thread *thread){
   assert(thread);
 
-  if(((UserThread*)thread)->isStateJoinable())
-    mapRetVals(thread->getTID(), (void*) ((UserThread*)thread)->retval_);
-
-  alive_lock_.acquire();
-  ((UserThread*)thread)->alive_cond_.broadcast();
-  alive_lock_.release();
+  UserThread* user_thread = (UserThread*) thread;
 
   threads_lock_.acquire();
   for (auto it = threads_.begin(); it != threads_.end(); it++)
@@ -186,6 +181,11 @@ void UserProcess::removeThread(Thread *thread){
     }
   }
   threads_lock_.release();
+
+  if (user_thread->join_ != NULL)
+  {
+    Scheduler::instance()->wake((Thread*) (user_thread->join_));
+  }
 }
 
 uint64 UserProcess::copyPages()
@@ -276,9 +276,9 @@ size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void*
 void UserProcess::mapRetVals(size_t tid, void* retval)
 {
   //TODO if detached don't store anything in mapretvals
-  retvals_lock_.acquire();
+  //retvals_lock_.acquire();
   retvals_.insert(ustl::make_pair(tid, retval));
-  retvals_lock_.release();
+  //retvals_lock_.release();
 }
 
 size_t UserProcess::cancelUserThread(size_t tid)
