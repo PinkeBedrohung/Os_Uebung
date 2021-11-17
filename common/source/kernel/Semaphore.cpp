@@ -1,8 +1,8 @@
+
 #include "Semaphore.h"
 #include "Thread.h"
 #include "Scheduler.h"
 #include "ArchThreads.h"
-
 
 Semaphore::Semaphore(size_t permits) :  value_lock("Semaphore::permits_lock") , permits_(permits) {}
 
@@ -21,7 +21,6 @@ void Semaphore::acquire()
         permits_--;
         permits_lock.release();
         tid_wait_map.erase(currentThread->getTID());
-
     }
     else
     {
@@ -35,5 +34,5 @@ void Semaphore::release()
     permits_lock.acquire();
     permits_++;
     tid_wait_map.erase(currentThread->getTID());
-    permits_.release();
+    permits_lock.release();
 }
