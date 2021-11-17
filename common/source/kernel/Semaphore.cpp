@@ -34,6 +34,6 @@ void Semaphore::release()
 {
     permits_lock.acquire();
     permits_++;
-    tid_wait_map.begin()->second = 0;
+    tid_wait_map.erase(currentThread->getTID());
     permits_.release();
 }
