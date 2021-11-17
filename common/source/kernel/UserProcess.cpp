@@ -361,16 +361,21 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   currentThread->loader_ = loader;
   
   //ArchThreads::setAddressSpace(currentThread, loader_->arch_memory_);
-  ((UserThread*)currentThread)->allocatePage(argv);
+  ((UserThread*)currentThread)->execStackSetup(argv,chars_per_arg);
 
   delete old_loader;
   VfsSyscall::close(old_fd);
 
   for (size_t i = 0; argv[i] != NULL; i++)
   {
-    delete argv[i];
+    kfree(argv[i]);
   }
-  delete argv;
+  kfree(argv);
+
+  while (chars_per_arg.size() != 0)
+  {
+      chars_per_arg.pop_front();
+  }
 
   ArchThreads::printThreadRegisters(currentThread);
 

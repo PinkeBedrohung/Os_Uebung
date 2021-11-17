@@ -4,6 +4,9 @@
 #include "Condition.h"
 #include "UserProcess.h"
 
+#define MAX_STACK_PAGES 20
+#define MAX_STACK_ARG_PAGES 256
+
 class UserProcess;
 
 class UserThread : public Thread
@@ -21,7 +24,7 @@ public:
     virtual void Run(); // not used
     UserProcess *getProcess();
     void copyRegisters(UserThread *thread);
-    void allocatePage(char** argv);
+    void execStackSetup(char** argv , ustl::list<int> &chars_per_arg);
 
     
     bool chainJoin(size_t thread);
@@ -33,5 +36,6 @@ public:
 private:
     void createThread(void* entry_function);
     size_t page_offset_;
-    ustl::list<size_t> page_offsets_;
+    size_t stack_base_nr_;
+    //ustl::list<size_t> page_offsets_;
 };

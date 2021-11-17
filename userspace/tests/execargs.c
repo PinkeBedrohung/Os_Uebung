@@ -16,9 +16,9 @@ int main(int argc, char* argv[])
     
     if(f != 0)
     {
-        printf("Hallo welt\n");
+        printf("exec addarg.sweb\n");
         execv("/usr/addarg.sweb", args);
-        printf("Hallo welt\n");
+        printf("ERROR - should not return\n");
 
     }
     return 0;
