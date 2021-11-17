@@ -23,6 +23,8 @@ UserThread::UserThread(UserProcess *process) : Thread(process->getFsInfo(), proc
     join_ = NULL;
     to_cancel_ = false;
     first_thread_ = false;
+    retval_ = 0;
+    is_joinable_ = JOINABLE;
 }
 
 UserThread::UserThread(UserProcess *process, void *(*routine)(void *), void *args, void *entry_function) : 
@@ -36,6 +38,8 @@ UserThread::UserThread(UserProcess *process, void *(*routine)(void *), void *arg
     createThread(entry_function);
     join_ = NULL;
     to_cancel_ = false;
+    retval_ = 0;
+    is_joinable_ = JOINABLE;
 
     debug(USERTHREAD, "ATTENTION: Not first Thread\n, setting rdi:%zu , and rsi:%zu\n", (size_t)routine, (size_t)args);
     user_registers_->rdi = (size_t)routine;
@@ -163,6 +167,7 @@ UserThread::UserThread(UserThread &thread, UserProcess *process) : Thread(proces
 
     page_offset_ = thread.page_offset_;
     stack_base_nr_ = thread.stack_base_nr_;
+    is_joinable_ = thread.is_joinable_;
     copyRegisters(&thread);
     ArchThreads::setAddressSpace(this, loader_->arch_memory_);
     switch_to_userspace_ = 1;
@@ -173,12 +178,7 @@ UserThread::~UserThread()
     assert(Scheduler::instance()->isCurrentlyCleaningUp());
 
     debug(USERTHREAD, "~UserThread - TID %zu\n", getTID());
-    process_->alive_lock_.acquire();
-    alive_cond_.broadcast();
-    process_->alive_lock_.release();
-
-    process_->removeThread(this);
-
+    
     if (process_->getLoader() != nullptr) //&& !first_thread_)
     {
         for (size_t page_offset = 0; page_offset <= page_offset_; page_offset++)
@@ -225,3 +225,23 @@ bool UserThread::chainJoin(size_t thread)
     }
     return false;
 }
+
+bool UserThread::isStateJoinable()
+{
+    if(is_joinable_ == JOINABLE)
+        return true;
+    else
+        return false;
+}
+
+size_t UserThread::setStateDetached()
+{
+    if(isStateJoinable())
+    {
+        is_joinable_ = DETACHED;
+        return 0;
+    }
+    else
+        return -1;
+}
+

@@ -10,6 +10,7 @@ enum ThreadState
   Running, Sleeping, ToBeDestroyed, USleep
 };
 
+
 enum SystemState { BOOTING, RUNNING, KPANIC };
 extern SystemState system_state;
 
