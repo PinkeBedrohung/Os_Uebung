@@ -5,7 +5,7 @@
 #include "UserProcess.h"
 
 #define MAX_STACK_PAGES 20
-#define MAX_STACK_ARG_PAGES 256
+#define MAX_STACK_ARG_PAGES 25
 
 class UserProcess;
 

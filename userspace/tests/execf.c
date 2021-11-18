@@ -5,7 +5,7 @@
 
 int main(int argc, char* argv[])
 {
-    char *args[] = {"1","2","3","4"};
+    char *args[] = {"1","2","3","4","5","6","7"};
 
     printf("%s\n", args[1]);
     printf("%s\n", args[2]);
