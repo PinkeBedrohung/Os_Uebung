@@ -315,10 +315,25 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   while(num_threads_ != 1)
   {Scheduler::instance()->yield();}
 
+  if(strlen(path) >= 260 )
+  {
+    //debug(EXEC,"NAME TOOO LONG \n");
+    return -1;
+  }
+
   if ((unsigned long long)*path >= USER_BREAK)
     {
       return -1;
     }
+  
+  int32_t fd = VfsSyscall::open(filename_.c_str(), O_RDONLY); 
+  if (fd == -1)
+  {
+    debug(EXEC,"WRONG NAME \n");
+    VfsSyscall::close(fd);
+    return -1U;
+  }
+    
 
   //TODO: Old fd deleting has to be handled  
  
@@ -333,15 +348,6 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
  // m.pt[m.pti].present;
   size_t vpage_nr = USER_BREAK / PAGE_SIZE - (4 + MAX_STACK_ARG_PAGES) - (((UserThread*)currentThread)->getStackBaseNr()  * (MAX_STACK_PAGES + 1)) - ((UserThread*)currentThread)->getPageOffset() ;
   size_t Stackbegin = (vpage_nr * PAGE_SIZE + PAGE_SIZE - sizeof(pointer));
-  debug(EXEC,"pageoffset = %d ", (int)((UserThread*)currentThread)->getPageOffset() );
-  debug(EXEC,"Stackbegin RSP = %p \n" ,(void *)Stackbegin);
-  debug(EXEC,"Stackbegin RSP c0 = %p \n" ,(void *)(Stackbegin-56));
-  debug(EXEC,"Stackbegin RSP c8 = %p \n" ,(void *)(Stackbegin-48));
-  debug(EXEC,"Stackbegin RSP d0= %p \n" ,(void *)(Stackbegin-40));
-  debug(EXEC,"Stackbegin RSP d8 = %p \n" ,(void *)(Stackbegin-32));
-  debug(EXEC,"Stackbegin RSP e0= %p \n" ,(void *)(Stackbegin-24));
-  debug(EXEC,"Stackbegin RSP d0= %p \n" ,(void *)(Stackbegin-(sizeof(pointer) * 5)));
-  debug(EXEC,"arg = %p \n",arg);
  
   if(arg != NULL)
   {
@@ -350,6 +356,11 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
     for (arg_index = 0; arg[arg_index] != NULL; arg_index++)
     {
      // debug(EXEC,"sollte gestoppt haben \n");
+     if(arg_index == ARG_MAX)
+     {
+       
+       return -1;
+     }
       size_counter += sizeof(char*);
       char_counter = 1;
       for (size_t pi = 0; arg[arg_index][pi] != '\0'; pi++)
@@ -364,15 +375,11 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
       {
         return -1;
       }
-      /*debug(EXEC,"----------------------------------------------------------------------\n");
-      debug(EXEC,"arg + arg_index = %p\n",(arg + arg_index));
-      debug(EXEC,"*arg + arg_index = %p\n",*(arg + arg_index));
-      debug(EXEC,"arg + arg_index + 1 = %p\n",(arg + arg_index+1));
-      debug(EXEC,"*arg + arg_index  + 1= %p\n",*(arg + arg_index +1));
-        debug(EXEC,"arg + arg_index + 2 = %p\n",(arg + arg_index+2));
-      debug(EXEC,"*arg + arg_index +2 = %p\n",*(arg + arg_index +2));
-         debug(EXEC,"arg + arg_index + 3 = %p\n",(arg + arg_index+3));
-      debug(EXEC,"*arg + arg_index +3 = %p\n",*(arg + arg_index +3));*/
+      //debug(EXEC,"----------------------------------------------------------------------\n");
+      //debug(EXEC,"arg + arg_index = %p\n",(arg + arg_index));
+      //debug(EXEC,"*arg + arg_index = %p\n",*(arg + arg_index));
+      //debug(EXEC,"arg + arg_index + 1 = %p\n",(arg + arg_index+1));
+      //debug(EXEC,"*arg + arg_index  + 1= %p\n",*(arg + arg_index +1));
     //  debug(EXEC,"test = %p", (void*)8589934592);
       //debug(EXEC,"USERBREAK = %p \n" , (void*)USER_BREAK);
       if(*(arg + arg_index +1) > (void*)USER_BREAK )
@@ -380,7 +387,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
         return -1;
       }
     }
-
+    debug(EXEC,"HIER IST AUS \n");
     page_counter = size_counter / PAGE_SIZE;
 
     if ((size_counter % PAGE_SIZE) != 0)
@@ -395,7 +402,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   }
 
   filename_ = ustl::string(path);
-  int32_t fd = VfsSyscall::open(filename_.c_str(), O_RDONLY); 
+  //int32_t fd = VfsSyscall::open(filename_.c_str(), O_RDONLY); 
   debug(USERPROCESS,"Filedescriptor ========= %d \n",fd);
   Loader* loader = new Loader(fd);
   loader->loadExecutableAndInitProcess();

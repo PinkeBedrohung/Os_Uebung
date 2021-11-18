@@ -6,6 +6,8 @@
 
 #define MAX_STACK_PAGES 20
 #define MAX_STACK_ARG_PAGES 25
+#define ARG_MAX 131072
+#define MAX_PATHNAME_SIZE 260
 
 class UserProcess;
 
