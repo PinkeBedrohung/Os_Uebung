@@ -55,6 +55,12 @@ class UserProcess
     Mutex alive_lock_;
     Mutex threads_lock_;
     Mutex retvals_lock_;
+    Mutex available_offsets_lock_;
+
+    void freePageOffset(size_t offset);
+    size_t getAvailablePageOffset();
+    size_t getVPageOffset();
+
   private:
     int32 fd_;
     uint32 pid_;
@@ -67,7 +73,9 @@ class UserProcess
 
     int32* binary_fd_counter_;
 
-    
     ThreadList threads_;
-    size_t num_threads_;  
+    size_t num_threads_;
+
+    size_t vpage_offset_;
+    ustl::list<size_t> available_offsets_;  
 };

@@ -16,11 +16,10 @@
 UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 pid, uint32 terminal_number) : 
         //holding_cow_(false),
         alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), retvals_lock_("UserProcess::retvals_lock_"),
+        available_offsets_lock_("UserProcess::available_offsets_lock_"),
         fd_(VfsSyscall::open(filename, O_RDONLY)), pid_(pid), filename_(filename), fs_info_(fs_info), 
         terminal_number_(terminal_number)//, parent_process_(0), child_processes_()
-        , num_threads_(0)
-        
-
+        , num_threads_(0), vpage_offset_(0)       
 {
   ProcessRegistry::instance()->processStart(); //should also be called if you fork a process
    if (fd_ >= 0)
@@ -41,11 +40,12 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
 
 UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) : //holding_cow_(true),
          alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), retvals_lock_("UserProcess::retvals_lock_"),
+         available_offsets_lock_("UserProcess::available_offsets_lock_"),
          fd_(VfsSyscall::open(process.filename_, O_RDONLY)),//fd_(VfsSyscall::open(process.getFilename().c_str(), O_RDONLY))
          pid_(ProcessRegistry::instance()->getNewPID()),
          filename_(process.getFilename()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
          terminal_number_(process.getTerminalNumber())//, parent_process_(&process), child_processes_()
-         , num_threads_(0)
+         , num_threads_(0), vpage_offset_(process.getVPageOffset())
 {
   ProcessRegistry::instance()->processStart();
 
@@ -65,6 +65,12 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
 
   debug(USERPROCESS, "Loader copy done\n");
 
+  for (size_t offset = 0; offset < vpage_offset_; offset += MAX_THREAD_PAGES)
+  {
+    if ((thread->getStackBase() - (4 + MAX_STACK_ARG_PAGES)) != offset)
+      freePageOffset(offset);
+  }
+  
   UserThread *new_thread = new UserThread(*thread, this);
   
   new_thread->user_registers_->rsp0 = (size_t)new_thread->getKernelStackStartPointer();
@@ -275,10 +281,9 @@ size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void*
 
 void UserProcess::mapRetVals(size_t tid, void* retval)
 {
-  //TODO if detached don't store anything in mapretvals
-  //retvals_lock_.acquire();
+  retvals_lock_.acquire();
   retvals_.insert(ustl::make_pair(tid, retval));
-  //retvals_lock_.release();
+  retvals_lock_.release();
 }
 
 size_t UserProcess::cancelUserThread(size_t tid)
@@ -393,4 +398,33 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   return 0;
 }
   
+size_t UserProcess::getAvailablePageOffset()
+{
+  size_t offset = 0;
+  available_offsets_lock_.acquire();
+  if (available_offsets_.size() == 0)
+  {
+    offset = vpage_offset_;
+    vpage_offset_ += MAX_THREAD_PAGES;
+  }
+  else
+  {
+    offset = available_offsets_[0];
+    available_offsets_.pop_front();
+  }
+  available_offsets_lock_.release();
 
+  return offset;
+}
+
+void UserProcess::freePageOffset(size_t offset)
+{
+  available_offsets_lock_.acquire();
+  available_offsets_.push_back(offset);
+  available_offsets_lock_.release();
+}
+
+size_t UserProcess::getVPageOffset()
+{
+  return vpage_offset_;
+}

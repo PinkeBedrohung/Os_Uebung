@@ -336,11 +336,9 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
   }
 
 
-  // current_process->retvals_lock_.acquire();
+  
   if(thread_to_join != NULL)
   {
-    // current_process->retvals_lock_.release();
-
     if(calling_thread->chainJoin(thread_to_join->getTID()))
     {
       return (size_t) -1U;
@@ -359,10 +357,12 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
   //else 
     //current_process->retvals_lock_.release();
 
+  current_process->retvals_lock_.acquire();
   if(current_process->retvals_.find(thread) != current_process->retvals_.end()
     && value_ptr != NULL)
     *value_ptr = current_process->retvals_.at(thread);
-
+  current_process->retvals_lock_.release();
+  
   return (size_t) 0;
 }
 
