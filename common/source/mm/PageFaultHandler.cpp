@@ -70,13 +70,45 @@ inline void PageFaultHandler::handlePageFault(size_t address, bool user,
 
   if (checkPageFaultIsValid(address, user, present, switch_to_us))
   {
-    
-    if(present && currentThread->getThreadType() == Thread::USER_THREAD && currentThread->handled_cow)
+    bool user_thread = currentThread->getThreadType() == Thread::USER_THREAD;
+    if (user_thread)
     {
-      currentThread->handled_cow = false;
-      return;
-    }
-    
+      const pointer virt_page_start_addr = address & ~(PAGE_SIZE - 1);
+      const size_t page = virt_page_start_addr / PAGE_SIZE;
+      const size_t page_offset = (size_t) ((USER_BREAK/PAGE_SIZE - 1) - page);
+      UserThread *thread = (UserThread*) currentThread;
+      if(present && currentThread->handled_cow)
+      {
+        currentThread->handled_cow = false;
+        return;
+      }
+      else if (page_offset <= MAX_THREADS * MAX_THREAD_PAGES)
+      {
+          debug(PAGEFAULT, "STACK: Page offset: %zd\n", page_offset);
+          debug(PAGEFAULT, "STACK: Stack base: %zd\n", thread->getStackBase());
+          if((thread->getStackBase() + MAX_STACK_PAGES) < page_offset)
+          {
+              debug(PAGEFAULT, "ERROR: Lower guard page!\n");
+              Syscall::exit(9997);
+          }
+          else if(page_offset < thread->getStackBase())
+          {
+              debug(PAGEFAULT, "ERROR: Upper guard page!\n");
+              Syscall::exit(9998);
+          }
+          else if(page_offset > thread->getStackBase() &&  page_offset <= (thread->getStackBase() + MAX_STACK_PAGES))
+          {
+              debug(PAGEFAULT, "STACK: Add new page: %zd\n", page_offset);
+              thread->growStack(page_offset);
+              return;
+          }
+          else
+          {
+              assert(false);
+          }
+      }
+    }   
+
     currentThread->loader_->loadPage(address);
   }
   else

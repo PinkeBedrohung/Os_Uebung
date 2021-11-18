@@ -14,10 +14,10 @@
 
 UserThread::UserThread(UserProcess *process) : Thread(process->getFsInfo(), process->getFilename(),
             Thread::USER_THREAD), fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber()),
-            alive_cond_(&process->alive_lock_, "alive_cond_"), cancel_lock_("cancel_lock"), page_offset_(0)
+            alive_cond_(&process->alive_lock_, "alive_cond_"), cancel_lock_("cancel_lock")
 {
     setThreadID(Scheduler::instance()->getNewTID());
-    stack_base_nr_ = getTID();
+    stack_base_nr_ = process->getAvailablePageOffset() + (4 + MAX_STACK_ARG_PAGES);
     loader_ = process_->getLoader();
     createThread(loader_->getEntryFunction());
     join_ = NULL;
@@ -30,10 +30,10 @@ UserThread::UserThread(UserProcess *process) : Thread(process->getFsInfo(), proc
 UserThread::UserThread(UserProcess *process, void *(*routine)(void *), void *args, void *entry_function) : 
             Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD), fd_(process->getFd()),
             process_(process), terminal_number_(process->getTerminalNumber()), alive_cond_(&process->alive_lock_, "alive_cond_"),
-            cancel_lock_("cancel_lock"), page_offset_(0)
+            cancel_lock_("cancel_lock")
 {
     setThreadID(Scheduler::instance()->getNewTID());
-    stack_base_nr_ = getTID();
+    stack_base_nr_ = process->getAvailablePageOffset() + (4 + MAX_STACK_ARG_PAGES);
     loader_ = process_->getLoader();
     createThread(entry_function);
     join_ = NULL;
@@ -53,17 +53,15 @@ void UserThread::execStackSetup(char **argv, ustl::list<int> &chars_per_arg)
     bool vpn_mapped;
     bool max_arg_size_reached = false;
 
-    page_offset_ = 0;
-    
     (void)max_arg_size_reached;
 
     size_t page_for_stack = PageManager::instance()->allocPPN();
-    size_t vpage_nr = USER_BREAK / PAGE_SIZE - (4 + MAX_STACK_ARG_PAGES) - (stack_base_nr_ * (MAX_STACK_PAGES + 1)) - page_offset_;
-    vpn_mapped = loader_->arch_memory_.mapPage(vpage_nr, page_for_stack, 1);
+    stack_page_ = USER_BREAK / PAGE_SIZE - stack_base_nr_ - 1;
+    vpn_mapped = loader_->arch_memory_.mapPage(stack_page_, page_for_stack, 1);
     assert(vpn_mapped && "Virtual page for stack was already mapped - this should never happen");
 
     ArchThreadRegisters *old_user_registers = user_registers_;
-    ArchThreads::createUserRegisters(user_registers_, loader_->getEntryFunction(), (void *)(vpage_nr * PAGE_SIZE + PAGE_SIZE - sizeof(pointer)), getKernelStackStartPointer());
+    ArchThreads::createUserRegisters(user_registers_, loader_->getEntryFunction(), (void *)(stack_page_ * PAGE_SIZE + PAGE_SIZE - sizeof(pointer)), getKernelStackStartPointer());
     ArchThreads::setAddressSpace(this, loader_->arch_memory_);
     delete old_user_registers;
 
@@ -129,12 +127,12 @@ void UserThread::createThread(void *entry_function)
 {
     size_t page_for_stack = PageManager::instance()->allocPPN();
 
-    size_t vpage_nr = USER_BREAK / PAGE_SIZE - (4 + MAX_STACK_ARG_PAGES) - (stack_base_nr_ * (MAX_STACK_PAGES + 1)) - page_offset_;
+    stack_page_ = USER_BREAK / PAGE_SIZE - stack_base_nr_ - 1;
 
-    bool vpn_mapped = loader_->arch_memory_.mapPage(vpage_nr, page_for_stack, 1);
+    bool vpn_mapped = loader_->arch_memory_.mapPage(stack_page_, page_for_stack, 1);
     assert(vpn_mapped && "Virtual page for stack was already mapped - this should never happen");
 
-    ArchThreads::createUserRegisters(user_registers_, entry_function, (void *)(vpage_nr * PAGE_SIZE + PAGE_SIZE - sizeof(pointer)), getKernelStackStartPointer());
+    ArchThreads::createUserRegisters(user_registers_, entry_function, (void *)(stack_page_ * PAGE_SIZE + PAGE_SIZE - sizeof(pointer)), getKernelStackStartPointer());
     ArchThreads::setAddressSpace(this, loader_->arch_memory_);
 
     debug(USERTHREAD, "ctor: Done loading %s\n", name_.c_str());
@@ -148,7 +146,7 @@ void UserThread::createThread(void *entry_function)
 
 UserThread::UserThread(UserThread &thread, UserProcess *process) : Thread(process->getFsInfo(), process->getFilename(),
             Thread::USER_THREAD), fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber()),
-            alive_cond_(&process->alive_lock_, "alive_cond_"), cancel_lock_("cancel_lock"), page_offset_(0), stack_base_nr_(thread.getTID())
+            alive_cond_(&process->alive_lock_, "alive_cond_"), cancel_lock_("cancel_lock"), stack_base_nr_(thread.stack_base_nr_)
 {
     setThreadID(Scheduler::instance()->getNewTID());
     debug(EXEC, "TID: %ld\n", getTID());
@@ -156,16 +154,15 @@ UserThread::UserThread(UserThread &thread, UserProcess *process) : Thread(proces
     loader_ = process->getLoader();
     to_cancel_ = false;
 
-    size_t vpage_nr = USER_BREAK / PAGE_SIZE - (4 + MAX_STACK_ARG_PAGES) - (stack_base_nr_ * (MAX_STACK_PAGES + 1)) - page_offset_;
+    stack_page_ = USER_BREAK / PAGE_SIZE - stack_base_nr_ - 1;
     
     ArchThreads::createUserRegisters(user_registers_, loader_->getEntryFunction(),
-                                     (void *)(vpage_nr * PAGE_SIZE + PAGE_SIZE - sizeof(pointer)),
+                                     (void *)(stack_page_ * PAGE_SIZE + PAGE_SIZE - sizeof(pointer)),
                                      getKernelStackStartPointer());
 
     if (main_console->getTerminal(terminal_number_))
         setTerminal(main_console->getTerminal(terminal_number_));
 
-    page_offset_ = thread.page_offset_;
     stack_base_nr_ = thread.stack_base_nr_;
     is_joinable_ = thread.is_joinable_;
     copyRegisters(&thread);
@@ -181,13 +178,16 @@ UserThread::~UserThread()
     
     if (process_->getLoader() != nullptr) //&& !first_thread_)
     {
-        for (size_t page_offset = 0; page_offset <= page_offset_; page_offset++)
+        for (size_t page_offset : used_offsets_)
         {
-            size_t vpage_nr = USER_BREAK / PAGE_SIZE - (4 + MAX_STACK_ARG_PAGES) - (stack_base_nr_ * (MAX_STACK_PAGES + 1)) - page_offset_;
+            size_t page = USER_BREAK / PAGE_SIZE - page_offset - 1;
 
-            debug(EXEC, "PAGE_OFFSET: %ld\n", page_offset_);
-            loader_->arch_memory_.unmapPage(vpage_nr);
+            debug(EXEC, "PAGE_OFFSET: %ld\n", page_offset);
+            loader_->arch_memory_.unmapPage(page);
         }
+
+        loader_->arch_memory_.unmapPage(stack_page_);
+        process_->freePageOffset(stack_base_nr_ - (4 + MAX_STACK_ARG_PAGES));
     }
     if (process_->getNumThreads() == 0)
         delete process_;
@@ -245,3 +245,21 @@ size_t UserThread::setStateDetached()
         return -1;
 }
 
+size_t UserThread::getStackBase()
+{
+    return stack_base_nr_;
+}
+
+size_t UserThread::getStackPage()
+{
+    return stack_page_;
+}
+
+void UserThread::growStack(size_t page_offset)
+{
+    size_t page_for_stack = PageManager::instance()->allocPPN();
+    size_t virtual_page = USER_BREAK / PAGE_SIZE - page_offset - 1;
+    bool vpn_mapped = loader_->arch_memory_.mapPage(virtual_page, page_for_stack, 1);
+    assert(vpn_mapped && "Virtual page for stack was already mapped - this should never happen");
+    used_offsets_.push_back(page_offset);
+}
