@@ -31,5 +31,7 @@ class Syscall
   static size_t sleep(unsigned int seconds);
   static int exec(const char *path,char const* arg[]);
   static size_t cancelThread(size_t tid);
+  static size_t setCancelState(size_t state, size_t oldstate);
+  static size_t setCancelType(size_t type, size_t oldtype);
 };
 

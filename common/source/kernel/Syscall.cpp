@@ -78,6 +78,12 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     case sc_sleep:
       return_value = sleep((unsigned int) arg1);
       break;
+    case sc_pthread_setcancelstate:
+      return_value = setCancelState((size_t)arg1, (size_t)arg2);
+      break;
+    case sc_pthread_setcanceltype:
+      return_value = setCancelType((size_t)arg1, (size_t)arg2);
+      break;
     case sc_pseudols:
       VfsSyscall::readdir((const char*) arg1);
       break;
@@ -383,4 +389,22 @@ size_t Syscall::detachThread(size_t tid)
   UserThread* thread = ((UserThread*)current_process->getThread(tid));
 
   return thread->setStateDetached();
+}
+size_t Syscall::setCancelState(size_t state, size_t oldstate)
+{
+  UserThread* thread = ((UserThread*)currentThread);
+  if(state != thread->PTHREAD_CANCEL_ENABLE && state != thread->PTHREAD_CANCEL_DISABLE) return -1;
+  if(oldstate != thread->cancelstate_ && oldstate != NULL) return -1;
+  thread->cancelstate_ = state;
+  return 0;
+}
+size_t Syscall::setCancelType(size_t type, size_t oldtype)
+{
+  UserThread* thread = ((UserThread*)currentThread);
+  if(type != thread->PTHREAD_CANCEL_ASYNCHRONOUS && type != thread->PTHREAD_CANCEL_DEFERRED)
+    return -1;
+  if(oldtype != thread->canceltype_ && oldtype != NULL)
+    return -1;
+  thread->canceltype_ = type;
+  return 0;
 }
