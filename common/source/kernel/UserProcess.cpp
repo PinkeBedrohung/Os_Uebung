@@ -345,6 +345,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   //Stackbegin = (vpage_nr * PAGE_SIZE );
   //Stackbegin = (vpage_nr * PAGE_SIZE + PAGE_SIZE + sizeof(pointer));
   debug(EXEC,"Stackbegin RSP = %p \n" ,(void *)Stackbegin);
+  debug(EXEC,"Stackbegin RSP c8 = %p \n" ,(void *)(Stackbegin-56));
   debug(EXEC,"Stackbegin RSP c8 = %p \n" ,(void *)(Stackbegin-48));
   debug(EXEC,"Stackbegin RSP d0= %p \n" ,(void *)(Stackbegin-40));
   debug(EXEC,"Stackbegin RSP d8 = %p \n" ,(void *)(Stackbegin-32));
@@ -356,7 +357,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   debug(EXEC,"arg = %p \n",arg);
   // debug(EXEC,"arg rechnung = %p \n",(void*)((((size_t)arg)-PAGE_SIZE + sizeof(pointer))/PAGE_SIZE));
   //debug(EXEC,"arg = %p \n",arg+sizeof(void*));
-  size_t test = sizeof(pointer);
+ // size_t test = sizeof(pointer);
  //debug(EXEC," WENNS DES IS FICK I WEN = %p \n", (void*)test );
   if(arg != NULL)
   {
@@ -376,13 +377,13 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
      // debug(EXEC, "char_counter: %d\n", (int)char_counter);
       chars_per_arg.insert(chars_per_arg.end(), char_counter);
       //debug(EXEC,"arg_index = %d \n", (int)arg_index);
-      if(arg_index % 2 == 0 && (arg + arg_index) <= (void*)(Stackbegin-(sizeof(pointer) * 5)) && (arg + arg_index) > (void*)(Stackbegin - sizeof(pointer) * 6 )  )
+      if(arg_index % 2 != 0 && (arg + arg_index + 1) <= (void*)(Stackbegin-(sizeof(pointer) * 5)) && (arg + arg_index) > (void*)(Stackbegin - sizeof(pointer) * 6 )  )
       {
-        //debug(EXEC,"I hoss mei lebn\n");
+        debug(EXEC,"I hoss mei lebn\n");
       }
-      if( (arg + arg_index) <= (void*)(Stackbegin-(sizeof(pointer) * 3)) && (arg + arg_index) > (void*)(Stackbegin - sizeof(pointer) * 4 )  )
+      if( arg_index % 2 == 0 && (arg + arg_index + 1) <= (void*)(Stackbegin-(sizeof(pointer) * 3)) && (arg + arg_index) > (void*)(Stackbegin - sizeof(pointer) * 4 )  )
       {
-       // debug(EXEC,"I hoss mei lebn gerade \n");
+        debug(EXEC,"I hoss mei lebn gerade \n");
       }
     /*  if((arg + arg_index) < (void *)(Stackbegin-32) &&  (arg + arg_index) >= (void *)(Stackbegin-40))arg_index % 2 != 0 &&
       {
@@ -391,7 +392,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
       debug(EXEC,"----------------------------------------------------------------------\n");
       debug(EXEC,"arg[%d] = %p \n",(int)arg_index,((void*)((size_t*)((size_t)arg[arg_index]))));
       
-      //debug(EXEC,"arg value guess = %p \n",((void*)((size_t*)((size_t)((size_t)arg - (arg_index+1) * sizeof(void*) * MAX_STACK_ARG_PAGES * PAGE_SIZE)))));
+    
       debug(EXEC,"*arg + arg_index = %p\n",(arg + arg_index));
 
       debug(EXEC,"*arg = %p\n",*arg);
@@ -400,7 +401,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
     debug(EXEC,"----------------------------------------------------------------------\n");
     debug(EXEC,"*arg + arg_index = %p\n",(arg + arg_index + 1));
     arg_index++;
-    //debug(EXEC,"*arg + arg_index = %p\n",(arg + arg_index + 1));
+    debug(EXEC,"*arg + arg_index = %p\n",(arg + arg_index + 1));
     //debug(EXEC,"size_counter = %d\n", (int)size_counter);
     //debug(EXEC,"MAX ARG SIZE = %d \n", ARG)
     page_counter = size_counter / PAGE_SIZE;
