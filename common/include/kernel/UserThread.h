@@ -40,9 +40,7 @@ public:
     size_t execStackSetup(char** argv , ustl::list<int> &chars_per_arg, size_t needed_pages, size_t argv_size);
     bool chainJoin(size_t thread);
     bool isStateJoinable();
-    size_t getStackBaseNr();
     size_t setStateDetached();
-    size_t getPageOffset();
     UserThread* join_;
     Condition alive_cond_;
     bool to_cancel_;
@@ -54,11 +52,6 @@ public:
 private:
     void createThread(void* entry_function);
     size_t stack_base_nr_;
-<<<<<<< HEAD
     size_t stack_page_;
     ustl::list<size_t> used_offsets_;
-=======
-    
-    //ustl::list<size_t> page_offsets_;
->>>>>>> origin/execreturn
 };

@@ -101,16 +101,6 @@ size_t UserThread::execStackSetup(char **argv, ustl::list<int> &chars_per_arg,si
     return 0;
 }
 
-size_t UserThread::getStackBaseNr()
-{
-    return stack_base_nr_;
-}
-
-size_t UserThread::getPageOffset()
-{
-    return page_offset_;
-}
-
 void UserThread::createThread(void *entry_function)
 {
     size_t page_for_stack = PageManager::instance()->allocPPN();

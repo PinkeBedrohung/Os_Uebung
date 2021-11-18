@@ -332,28 +332,28 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   //debug(EXEC,"thread stack = %lx \n arg = %lx",current);
   //ArchMemoryMapping m = currentThread->loader_->arch_memory_.resolveMapping(currentThread->kernel_registers_->rsp / PAGE_SIZE);
  // m.pt[m.pti].present;
-  size_t vpage_nr = USER_BREAK / PAGE_SIZE - (4 + MAX_STACK_ARG_PAGES) - (((UserThread*)currentThread)->getStackBaseNr()  * (MAX_STACK_PAGES + 1)) - ((UserThread*)currentThread)->getPageOffset() ;
+  //size_t vpage_nr = USER_BREAK / PAGE_SIZE - (4 + MAX_STACK_ARG_PAGES) - (((UserThread*)currentThread)->getStackBaseNr()  * (MAX_STACK_PAGES + 1));
   //(void *)(currentThreadRegisters->rbp * PAGE_SIZE + PAGE_SIZE - sizeof(pointer)
   /*debug(EXEC,"rsp = %p\n",(void*)currentThread->kernel_registers_->rsp );
   debug(EXEC,"rsp = %p\n",(void*)currentThread->kernel_registers_->rbp );
   debug(EXEC,"vpage_nr = %p \n" ,(void *)vpage_nr);
   debug(EXEC,"RECKEN DUATS OB %p\n",arg+73*sizeof(void*));
   debug(EXEC,"size of pointer %d",(int)sizeof(pointer));*/
-  size_t Stackbegin = (vpage_nr * PAGE_SIZE + PAGE_SIZE - sizeof(pointer));
-  debug(EXEC,"pageoffset = %d ", (int)((UserThread*)currentThread)->getPageOffset() );
+  //size_t Stackbegin = (vpage_nr * PAGE_SIZE + PAGE_SIZE - sizeof(pointer));
+  //debug(EXEC,"pageoffset = %d ", (int)((UserThread*)currentThread)->getPageOffset() );
   //Stackbegin = (vpage_nr * PAGE_SIZE );
   //Stackbegin = (vpage_nr * PAGE_SIZE + PAGE_SIZE + sizeof(pointer));
-  debug(EXEC,"Stackbegin RSP = %p \n" ,(void *)Stackbegin);
-  debug(EXEC,"Stackbegin RSP c8 = %p \n" ,(void *)(Stackbegin-56));
-  debug(EXEC,"Stackbegin RSP c8 = %p \n" ,(void *)(Stackbegin-48));
-  debug(EXEC,"Stackbegin RSP d0= %p \n" ,(void *)(Stackbegin-40));
-  debug(EXEC,"Stackbegin RSP d8 = %p \n" ,(void *)(Stackbegin-32));
-  debug(EXEC,"Stackbegin RSP e0= %p \n" ,(void *)(Stackbegin-24));
-  debug(EXEC,"Stackbegin RSP d0= %p \n" ,(void *)(Stackbegin-(sizeof(pointer) * 5)));
+  //debug(EXEC,"Stackbegin RSP = %p \n" ,(void *)Stackbegin);
+  //debug(EXEC,"Stackbegin RSP c8 = %p \n" ,(void *)(Stackbegin-56));
+  //debug(EXEC,"Stackbegin RSP c8 = %p \n" ,(void *)(Stackbegin-48));
+  //debug(EXEC,"Stackbegin RSP d0= %p \n" ,(void *)(Stackbegin-40));
+  //debug(EXEC,"Stackbegin RSP d8 = %p \n" ,(void *)(Stackbegin-32));
+  //debug(EXEC,"Stackbegin RSP e0= %p \n" ,(void *)(Stackbegin-24));
+  //debug(EXEC,"Stackbegin RSP d0= %p \n" ,(void *)(Stackbegin-(sizeof(pointer) * 5)));
 
   //size_t lowerbound = Stackbegin  - sizeof(pointer) ; // - ((UserThread*)currentThread)->getPageOffset()//- PAGE_SIZE; // ;
   //debug(EXEC,"lowerbound = %p \n",(void*)lowerbound);
-  debug(EXEC,"arg = %p \n",arg);
+  //debug(EXEC,"arg = %p \n",arg);
   // debug(EXEC,"arg rechnung = %p \n",(void*)((((size_t)arg)-PAGE_SIZE + sizeof(pointer))/PAGE_SIZE));
   //debug(EXEC,"arg = %p \n",arg+sizeof(void*));
  // size_t test = sizeof(pointer);
@@ -376,7 +376,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
      // debug(EXEC, "char_counter: %d\n", (int)char_counter);
       chars_per_arg.insert(chars_per_arg.end(), char_counter);
       //debug(EXEC,"arg_index = %d \n", (int)arg_index);
-      if(arg_index % 2 != 0 && (arg + arg_index + 1) <= (void*)(Stackbegin-(sizeof(pointer) * 5)) && (arg + arg_index) > (void*)(Stackbegin - sizeof(pointer) * 6 )  )
+      /*if(arg_index % 2 != 0 && (arg + arg_index + 1) <= (void*)(Stackbegin-(sizeof(pointer) * 5)) && (arg + arg_index) > (void*)(Stackbegin - sizeof(pointer) * 6 )  )
       {
         debug(EXEC,"I hoss mei lebn\n");
       }
@@ -384,7 +384,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
       {
         debug(EXEC,"I hoss mei lebn gerade \n");
       }
-    /*  if((arg + arg_index) < (void *)(Stackbegin-32) &&  (arg + arg_index) >= (void *)(Stackbegin-40))arg_index % 2 != 0 &&
+      if((arg + arg_index) < (void *)(Stackbegin-32) &&  (arg + arg_index) >= (void *)(Stackbegin-40))arg_index % 2 != 0 &&
       {
         debug(EXEC,"I hoss mei lebn\n");
       }*/
