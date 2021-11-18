@@ -101,6 +101,8 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
 void Syscall::exit(size_t exit_code)
 {
   debug(SYSCALL, "Syscall::EXIT: called, exit_code: %zd\n", exit_code);
+  UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
+  current_process->cancelNonCurrentThreads(currentThread);
   currentThread->kill();
 }
 

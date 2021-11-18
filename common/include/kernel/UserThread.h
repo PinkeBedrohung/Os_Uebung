@@ -33,11 +33,11 @@ public:
     virtual void Run(); // not used
     UserProcess *getProcess();
     void copyRegisters(UserThread *thread);
-    void execStackSetup(char** argv , ustl::list<int> &chars_per_arg);
     size_t getStackBase();
     size_t getStackPage();
     size_t getNumPages();
     void growStack(size_t page_offset);
+    size_t execStackSetup(char** argv , ustl::list<int> &chars_per_arg, size_t needed_pages, size_t argv_size);
     bool chainJoin(size_t thread);
     bool isStateJoinable();
     size_t setStateDetached();
