@@ -120,6 +120,12 @@ typedef long int intptr_t;
 extern pid_t fork();
 
 /**
+ * Returns the Process ID of the current Process
+ *
+ */
+extern pid_t getpid();
+
+/**
  * Terminates the calling process. Any open file descriptors belonging to the
  * process are closed, any children of the process are inherited by process
  * 1, init, and the process's parent is sent a SIGCHLD signal.

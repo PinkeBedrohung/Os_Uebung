@@ -90,6 +90,9 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     case  sc_waitpid:
       return_value = waitpid(arg1, arg2, arg3);
       break;
+    case  sc_getpid:
+      return_value = getpid();
+      break;
     default:
       kprintf("Syscall::syscall_exception: Unimplemented Syscall Number %zd\n", syscall_number);
   }
@@ -109,10 +112,11 @@ void Syscall::exit(size_t exit_code)
   {
     UserThread *currentUserThread = (UserThread *)currentThread;
 
-    ProcessExitInfo pexit_info(exit_code, currentUserThread->getProcess()->getPID());
     ProcessRegistry::instance()->lockLists();
+    ProcessExitInfo pexit_info(exit_code, currentUserThread->getProcess()->getPID());
     ProcessRegistry::instance()->makeZombiePID(pexit_info.pid_);
     ProcessRegistry::instance()->addExitInfo(pexit_info);
+    ProcessRegistry::instance()->signalPidAvailable(pexit_info.pid_);
     ProcessRegistry::instance()->unlockLists();
     debug(WAIT_PID, "Process exited - Exit_val: %ld, PID: %ld\n", pexit_info.exit_val_, pexit_info.pid_);
 
@@ -402,52 +406,145 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
     return (size_t) -1UL;
   }
 
-  bool is_zombie;
-  ProcessRegistry::instance()->lockLists();
-  is_zombie = ProcessRegistry::instance()->checkProcessIsZombie(pid);
-  
-  if(is_zombie)
+  // Only the default and WEXITED options are implemented - they are the same
+  const int WEXITED = 4;
+  if(!(options == WEXITED || options == 0))
   {
-    ProcessExitInfo pexit(ProcessRegistry::instance()->getExitInfo(pid));
-
-    if(status != NULL)
-      *((int*)status) = pexit.exit_val_;
-    debug(WAIT_PID, "Thread:%ld found terminated Process PID: %ld\n", currentThread->getTID(), pid);
-    ProcessRegistry::instance()->unlockLists();
-    return pexit.pid_;
+    return (size_t) -1UL;
   }
 
-  bool is_used = ProcessRegistry::instance()->checkProcessIsUsed(pid);  
-
-  if(!is_used)
-  {
-    ProcessRegistry::instance()->unlockLists();
-    return -1;
-  }
-  ProcessRegistry::instance()->unlockLists();
-
-  ProcessRegistry::instance()->pid_waits_lock_.acquire();
-
+  size_t check_pid = pid;
   bool delete_entry = false;
 
-  for (auto itr = ProcessRegistry::instance()->pid_waits_.begin(); itr != ProcessRegistry::instance()->pid_waits_.end(); itr++)
+  size_t curr_pid = ((UserThread *)currentThread)->getProcess()->getPID();
+  size_t curr_tid = currentThread->getTID();
+  ProcessRegistry *pr_instance = ProcessRegistry::instance();
+
+  // Waiting for his own pid is not allowed
+  if(pid == curr_pid)
+  {
+    return (size_t) -1UL;
+  }
+
+  //Deadlock check
+  pr_instance->lockLists();
+
+  if(pid != (size_t) -1UL && pr_instance->checkPidWaitsHasDeadlock(curr_pid, pid))
+  {
+    pr_instance->unlockLists();
+    return (size_t) -1UL;
+  }
+
+  // Wait for any terminated process
+  if(pid == (size_t) -1UL)
+  {
+    
+    size_t ret_pid = pr_instance->getFirstZombiePID();
+
+    // Found a terminated pid
+    if(ret_pid != (size_t) -1UL)
+    {
+      pr_instance->pid_waits_lock_.acquire();
+      PidWaits* pid_waits;
+      for (auto itr = pr_instance->pid_waits_.begin(); itr != pr_instance->pid_waits_.end(); itr++)
+      {
+        if(ret_pid == (*itr)->getPid())
+        {
+          pid_waits = *itr;
+          break;
+        }
+      }
+
+      pid_waits->list_lock_.acquire();
+      if(pid_waits->getNumPtids() == 0)
+      {
+        delete_entry = true;
+      }
+
+      debug(WAIT_PID, "Thread:%ld tries to get Exit info of Process PID %ld with -1\n", curr_tid, ret_pid);
+      pid_waits->list_lock_.release();
+      ProcessExitInfo pexit(pr_instance->getExitInfo(ret_pid, delete_entry));
+      pr_instance->pid_waits_lock_.release();
+      
+      if(status != NULL)
+        *((int*)status) = pexit.exit_val_;
+
+      debug(WAIT_PID, "Thread:%ld found terminated Process PID: %ld with -1\n", curr_tid, pexit.pid_);
+      pr_instance->unlockLists();
+      return pexit.pid_;
+    }
+
+    // No Process has terminated yet so the thread has to wait for a process in use
+    pr_instance->unlockLists();
+    pr_instance->pid_waits_lock_.acquire();
+    debug(WAIT_PID, "Thread:%ld waits for any terminated Process\n", curr_tid);
+    check_pid = pr_instance->getPidAvailable();
+    debug(WAIT_PID, "Thread:%ld waited for any terminated Process and got PID: %ld\n", curr_tid, check_pid);
+  }
+  else
+  {
+    bool is_zombie;
+    is_zombie = pr_instance->checkProcessIsZombie(pid);
+    
+    if(is_zombie)
+    {
+      pr_instance->pid_waits_lock_.acquire();
+      PidWaits* pid_waits;
+      for (auto itr = pr_instance->pid_waits_.begin(); itr != pr_instance->pid_waits_.end(); itr++)
+      {
+        if(pid == (*itr)->getPid())
+        {
+          pid_waits = *itr;
+          break;
+        }
+      }
+
+      pid_waits->list_lock_.acquire();
+      if (pid_waits->getNumPtids() == 0)
+      {
+        debug(WAIT_PID, "Thread:%ld found terminated Process PID: %ld\n", curr_tid, pid);
+        delete_entry = true;
+      }
+
+      pid_waits->list_lock_.release();
+      ProcessExitInfo pexit(pr_instance->getExitInfo(pid, delete_entry));
+      pr_instance->pid_waits_lock_.release();
+
+      if(status != NULL)
+        *((int*)status) = pexit.exit_val_;
+
+      debug(WAIT_PID, "Thread:%ld found terminated Process PID: %ld\n", curr_tid, pid);
+      pr_instance->unlockLists();
+      return pexit.pid_;
+    }
+
+    bool is_used = pr_instance->checkProcessIsUsed(check_pid);  
+    pr_instance->unlockLists();
+    if(!is_used)
+    {
+      return -1;
+    }
+    pr_instance->pid_waits_lock_.acquire();
+  }
+
+  for (auto itr = pr_instance->pid_waits_.begin(); itr != pr_instance->pid_waits_.end(); itr++)
   {
     auto pid_waits = *itr;
-    if (pid == pid_waits->getPid())
+    if (check_pid == pid_waits->getPid())
     {
-      ProcessRegistry::instance()->pid_waits_lock_.release();
-      debug(WAIT_PID, "Thread: %ld waiting for termination of Process PID: %ld\n", currentThread->getTID(), pid);
-      pid_waits->waitUntilReady(currentThread->getTID());
+      pr_instance->pid_waits_lock_.release();
+      debug(WAIT_PID, "Thread: %ld waiting for termination of Process PID: %ld\n", curr_tid, check_pid);
+      pid_waits->waitUntilReady(curr_pid, curr_tid);
 
-      ProcessRegistry::instance()->pid_waits_lock_.acquire();
+      pr_instance->pid_waits_lock_.acquire();
       pid_waits->list_lock_.acquire();
-      pid_waits->removeTid(currentThread->getTID());
+      pid_waits->removePtid(curr_pid, curr_tid);
 
-      if(pid_waits->getNumTids() == 0)
+      if(pid_waits->getNumPtids() == 0)
       {
         delete_entry = true;
         pid_waits->list_lock_.release();
-        debug(WAIT_PID, "Erase pid_waits_ element with pid: %ld\n", pid);
+        debug(WAIT_PID, "Erase pid_waits_ element with pid: %ld\n", check_pid);
         //ProcessRegistry::instance()->pid_waits_.erase(itr);
         //delete pid_waits;
       }
@@ -455,20 +552,21 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
       {
         pid_waits->list_lock_.release();
       }
-
-      ProcessExitInfo pexit(ProcessRegistry::instance()->getExitInfo(pid, delete_entry));
-
+      pr_instance->lockLists();
+      ProcessExitInfo pexit(pr_instance->getExitInfo(check_pid, false));//delete_entry));
+      pr_instance->unlockLists();
       if(status != NULL)
         *((int*)status) = pexit.exit_val_;
       
-      ProcessRegistry::instance()->pid_waits_lock_.release();
+      pr_instance->pid_waits_lock_.release();
       return pid;
     }
   }
-
-  (void)pid;
-  (void)status;
-  (void)options;
   
-  return 0;
+  return -1;
+}
+
+size_t Syscall::getpid()
+{
+  return ((UserThread *)currentThread)->getProcess()->getPID();
 }

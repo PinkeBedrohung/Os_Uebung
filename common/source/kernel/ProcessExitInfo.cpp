@@ -6,6 +6,7 @@ ProcessExitInfo::ProcessExitInfo(size_t exit_val, size_t pid) : exit_val_(exit_v
 
 ProcessExitInfo::~ProcessExitInfo()
 {
+    debug(WAIT_PID, "Deleted PidWaits PID: %ld\n", pid_);
 }
 
 ProcessExitInfo::ProcessExitInfo(const ProcessExitInfo& other)

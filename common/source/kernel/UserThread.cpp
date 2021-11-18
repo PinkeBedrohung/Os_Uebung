@@ -255,4 +255,3 @@ size_t UserThread::setStateDetached()
     else
         return -1;
 }
-

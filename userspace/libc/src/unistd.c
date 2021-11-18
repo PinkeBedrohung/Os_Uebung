@@ -39,3 +39,8 @@ int ftruncate(int fildes, off_t length)
 {
     return -1;
 }
+
+pid_t getpid()
+{
+  return __syscall(sc_getpid, 0x00, 0x00, 0x00, 0x00, 0x00);
+}

@@ -52,9 +52,17 @@ class ProcessRegistry : public Thread
     void addExitInfo(ProcessExitInfo &pexit_info);
     ProcessExitInfo getExitInfo(size_t pid, bool delete_entry=false);
     void makeZombiePID(size_t pid);
+    size_t getFirstZombiePID();
+    size_t getUsedPid();
+    size_t getPidAvailable();
+    void signalPidAvailable(size_t pid);
+    bool checkPidWaitsHasDeadlock(size_t curr_pid, size_t pid_to_wait);
 
     Mutex pid_waits_lock_;
     ustl::list<PidWaits*> pid_waits_;
+
+    Mutex pid_available_lock_;
+    Condition pid_available_cond_;
 
   private:
 
@@ -71,4 +79,6 @@ class ProcessRegistry : public Thread
     ustl::list<size_t> unused_pids_;
     ustl::list<ProcessExitInfo> pexit_infos_;
     size_t progs_started_;
+
+    size_t last_pid_available_;
 };

@@ -92,8 +92,6 @@ UserProcess::~UserProcess()
   {
     VfsSyscall::close(fd_);
   }
-  
-  //ProcessRegistry::instance()->releasePID(pid_);
   ProcessRegistry::instance()->processExit();
 }
 

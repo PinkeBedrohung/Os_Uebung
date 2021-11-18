@@ -14,7 +14,7 @@ int main()
     if(var != 0)
     {
         printf("waiting for pid: %d\n", var);
-        pid_t pid = waitpid(var, NULL, WEXITED);
+        pid_t pid = waitpid(var, NULL, 44);
         printf("pid %d returned: %ld\n", var, pid);
         
     }

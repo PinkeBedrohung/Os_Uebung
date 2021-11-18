@@ -13,9 +13,10 @@ int main()
 
     if(var != 0)
     {
+        int retval;
         printf("waiting for pid: %d\n", var);
-        pid_t pid = waitpid(var, NULL, WEXITED);
-        printf("pid %d returned: %ld\n", var, pid);
+        pid_t pid = waitpid(var, &retval, 0);
+        printf("waited for pid %d returned: %ld with retval: %d\n", var, pid, retval);
         
     }
     else
@@ -25,5 +26,5 @@ int main()
         }
     }
     
-    return 0;
+    return 123;
 }

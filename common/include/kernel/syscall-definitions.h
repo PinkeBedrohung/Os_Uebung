@@ -27,3 +27,4 @@
 #define sc_clock 99
 #define sc_sleep 100
 #define sc_waitpid 8
+#define sc_getpid 9
