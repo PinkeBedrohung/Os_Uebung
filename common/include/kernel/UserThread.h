@@ -30,12 +30,13 @@ public:
     virtual void Run(); // not used
     UserProcess *getProcess();
     void copyRegisters(UserThread *thread);
-    void execStackSetup(char** argv , ustl::list<int> &chars_per_arg);
+    size_t execStackSetup(char** argv , ustl::list<int> &chars_per_arg, size_t needed_pages, size_t argv_size);
 
-    
     bool chainJoin(size_t thread);
     bool isStateJoinable();
+    size_t getStackBaseNr();
     size_t setStateDetached();
+    size_t getPageOffset();
     UserThread* join_;
     Condition alive_cond_;
     bool to_cancel_;
@@ -47,5 +48,6 @@ private:
     void createThread(void* entry_function);
     size_t page_offset_;
     size_t stack_base_nr_;
+    
     //ustl::list<size_t> page_offsets_;
 };

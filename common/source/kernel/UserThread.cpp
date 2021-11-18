@@ -46,17 +46,11 @@ UserThread::UserThread(UserProcess *process, void *(*routine)(void *), void *arg
     user_registers_->rsi = (size_t)args;
 }
 
-void UserThread::execStackSetup(char **argv, ustl::list<int> &chars_per_arg)
+size_t UserThread::execStackSetup(char **argv, ustl::list<int> &chars_per_arg,size_t needed_pages, size_t argv_size)
 {
-    size_t needed_pages = 0;
-    size_t argv_size = 0;
     bool vpn_mapped;
-    bool max_arg_size_reached = false;
-
     page_offset_ = 0;
     
-    (void)max_arg_size_reached;
-
     size_t page_for_stack = PageManager::instance()->allocPPN();
     size_t vpage_nr = USER_BREAK / PAGE_SIZE - (4 + MAX_STACK_ARG_PAGES) - (stack_base_nr_ * (MAX_STACK_PAGES + 1)) - page_offset_;
     vpn_mapped = loader_->arch_memory_.mapPage(vpage_nr, page_for_stack, 1);
@@ -74,55 +68,45 @@ void UserThread::execStackSetup(char **argv, ustl::list<int> &chars_per_arg)
 
     if (argv != NULL)
     {
-        for (auto &char_count : chars_per_arg)
+        size_t arg_page;
+        // debug(EXEC,"UserThread neededpages = %d",needed_pages);
+        for (size_t arg_page_ctr = 0; arg_page_ctr < needed_pages; arg_page_ctr++)
         {
-            argv_size += char_count;
-        }
-        
-        argv_size += (chars_per_arg.size() + 1) * sizeof(char *);
-        needed_pages = argv_size / PAGE_SIZE;
-
-        if ((argv_size % PAGE_SIZE) != 0)
-        {
-            needed_pages++;
+            arg_page = PageManager::instance()->allocPPN();
+            vpn_mapped = loader_->arch_memory_.mapPage(USER_BREAK / PAGE_SIZE - (2+arg_page_ctr), arg_page, 1);
+            assert(vpn_mapped && "Virtual page for arguments was already mapped - this should never happen");
         }
 
-        debug(EXEC, "needed pages: %ld\n", needed_pages);
-        if ((needed_pages) <= MAX_STACK_ARG_PAGES)
+        size_t arg_start_address = (USER_BREAK / PAGE_SIZE - 1) * PAGE_SIZE;
+        debug(EXEC, "arg_start_address: 0x%lx \n", arg_start_address);
+
+        char **stack_argv = (char **)((size_t)((size_t *)arg_start_address) - argv_size);
+
+        uint16 written_char_counter = 0;
+        uint16 arg_counter = chars_per_arg.size() + 1;
+        debug(EXEC, "Argcounter: %d\n", arg_counter);
+
+        for (size_t i = 0; i < (size_t)arg_counter - 1; i++)
         {
-            size_t arg_page;
-
-            for (size_t arg_page_ctr = 0; arg_page_ctr < needed_pages; arg_page_ctr++)
-            {
-                arg_page = PageManager::instance()->allocPPN();
-                vpn_mapped = loader_->arch_memory_.mapPage(USER_BREAK / PAGE_SIZE - (2+arg_page_ctr), arg_page, 1);
-                assert(vpn_mapped && "Virtual page for arguments was already mapped - this should never happen");
-            }
-
-            size_t arg_start_address = (USER_BREAK / PAGE_SIZE - 1) * PAGE_SIZE;
-            debug(EXEC, "arg_start_address: 0x%lx \n", arg_start_address);
-
-            char **stack_argv = (char **)((size_t)((size_t *)arg_start_address) - argv_size);
-
-            uint16 written_char_counter = 0;
-            uint16 arg_counter = chars_per_arg.size() + 1;
-            debug(EXEC, "Argcounter: %d\n", arg_counter);
-
-            for (size_t i = 0; i < (size_t)arg_counter - 1; i++)
-            {
-                stack_argv[i] = (char *)((size_t)stack_argv + arg_counter * sizeof(char *) + written_char_counter);
-                written_char_counter += chars_per_arg.at(i);
-                memcpy(stack_argv[i], argv[i], (size_t)chars_per_arg.at(i));
-            }
-
-            user_registers_->rdi = arg_counter - 1;
-            user_registers_->rsi = (size_t)stack_argv;
+            stack_argv[i] = (char *)((size_t)stack_argv + arg_counter * sizeof(char *) + written_char_counter);
+            written_char_counter += chars_per_arg.at(i);
+            memcpy(stack_argv[i], argv[i], (size_t)chars_per_arg.at(i));
         }
-        else
-        {
-            max_arg_size_reached = true;
-        }
+
+        user_registers_->rdi = arg_counter - 1;
+        user_registers_->rsi = (size_t)stack_argv; 
     }
+    return 0;
+}
+
+size_t UserThread::getStackBaseNr()
+{
+    return stack_base_nr_;
+}
+
+size_t UserThread::getPageOffset()
+{
+    return page_offset_;
 }
 
 void UserThread::createThread(void *entry_function)
