@@ -39,6 +39,9 @@ extern void pthread_exit(void *value_ptr);
 
 extern int pthread_cancel(pthread_t thread);
 
+extern int pthread_setcanceltype(int type, int *oldtype);
+extern int pthread_setcancelstate(int type, int *oldtype);
+
 extern int pthread_join(pthread_t thread, void **value_ptr);
 
 extern int pthread_detach(pthread_t thread);
