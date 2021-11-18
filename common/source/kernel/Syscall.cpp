@@ -310,12 +310,7 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
 {
   UserThread* calling_thread = ((UserThread*)currentThread);
   UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
-  UserThread* thread_to_join = ((UserThread*)current_process->getThread(thread));
-  // if(thread == NULL)
-  // {
-  //   //debug(SYSCALL, "Thread to be joined is non-existent!\n");
-  //   return (size_t)-1U;
-  // }
+  UserThread* thread_to_join = (UserThread*)(current_process->getThread(thread));
 
 
   if((uint64)value_ptr > USER_BREAK && value_ptr != NULL)
@@ -380,7 +375,7 @@ size_t Syscall::cancelThread(size_t tid)
 size_t Syscall::detachThread(size_t tid)
 {
   UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
-  UserThread* thread = ((UserThread*)current_process->getThread(tid));
+  UserThread* thread = (UserThread*)(current_process->getThread(tid));
 
   return thread->setStateDetached();
 }

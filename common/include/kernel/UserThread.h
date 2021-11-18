@@ -23,7 +23,7 @@ public:
 
     enum JoinableState
     {
-    JOINABLE, DETACHED
+        JOINABLE, DETACHED
     };
 
     UserThread(UserProcess *process);
@@ -47,7 +47,7 @@ public:
     Mutex cancel_lock_;
     bool first_thread_;
     size_t retval_;
-    size_t is_joinable_;
+    int is_joinable_;
 
 private:
     void createThread(void* entry_function);
