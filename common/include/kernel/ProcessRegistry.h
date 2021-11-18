@@ -6,6 +6,7 @@
 #include "ulist.h"
 #include "UserProcess.h"
 #include "ProcessExitInfo.h"
+#include "PidWaits.h"
 
 class ProcessRegistry : public Thread
 {
@@ -44,11 +45,16 @@ class ProcessRegistry : public Thread
 
     size_t getNewPID();
     void releasePID(size_t pid);
-    bool checkProcessExists(size_t pid);
+    bool checkProcessIsUsed(size_t pid);
+    bool checkProcessIsZombie(size_t pid);
     void lockLists();
     void unlockLists();
     void addExitInfo(ProcessExitInfo &pexit_info);
-    ProcessExitInfo getExitInfo(size_t pid);
+    ProcessExitInfo getExitInfo(size_t pid, bool delete_entry=false);
+    void makeZombiePID(size_t pid);
+
+    Mutex pid_waits_lock_;
+    ustl::list<PidWaits*> pid_waits_;
 
   private:
 
@@ -61,6 +67,8 @@ class ProcessRegistry : public Thread
     Mutex list_lock_;
     Mutex exit_info_lock_;
     ustl::list<size_t> used_pids_;
+    ustl::list<size_t> zombie_pids_;
     ustl::list<size_t> unused_pids_;
     ustl::list<ProcessExitInfo> pexit_infos_;
+    size_t progs_started_;
 };

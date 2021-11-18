@@ -9,10 +9,10 @@
 ProcessRegistry* ProcessRegistry::instance_ = 0;
 
 ProcessRegistry::ProcessRegistry(FileSystemInfo *root_fs_info, char const *progs[]) :
-    Thread(root_fs_info, "ProcessRegistry", Thread::KERNEL_THREAD), progs_(progs), progs_running_(0),
+    Thread(root_fs_info, "ProcessRegistry", Thread::KERNEL_THREAD), pid_waits_lock_("ProcessRegistry::pid_waits_lock_"), progs_(progs), progs_running_(0),
     counter_lock_("ProcessRegistry::counter_lock_"),
     all_processes_killed_(&counter_lock_, "ProcessRegistry::all_processes_killed_"), list_lock_("ProcessRegistry::list_lock_"), 
-    exit_info_lock_("ProcessRegistry::exit_info_lock_")
+    exit_info_lock_("ProcessRegistry::exit_info_lock_"), progs_started_(0)
 {
   instance_ = this; // instance_ is static! -> Singleton-like behaviour
 }
@@ -119,10 +119,16 @@ size_t ProcessRegistry::getNewPID(){
   if (unused_pids_.size() == 0)
   {
     counter_lock_.acquire();
-    new_pid = progs_running_;
+    new_pid = progs_started_++;
     counter_lock_.release();
 
     used_pids_.push_back(new_pid);
+
+    PidWaits *new_pid_waits = new PidWaits(new_pid);
+    pid_waits_lock_.acquire();
+    pid_waits_.push_back(new_pid_waits);
+    pid_waits_lock_.release();
+
     list_lock_.release();
 
     debug(PROCESS_REG, "Added new PID %zu to the used PID list\n", new_pid);
@@ -134,6 +140,12 @@ size_t ProcessRegistry::getNewPID(){
   unused_pids_.pop_front();
   // Add the popped pid to the used_pids list
   used_pids_.insert(used_pids_.end(), new_pid);
+
+  PidWaits *new_pid_waits = new PidWaits(new_pid);
+  pid_waits_lock_.acquire();
+  pid_waits_.push_back(new_pid_waits);
+  pid_waits_lock_.release();
+
   list_lock_.release();
 
   debug(PROCESS_REG, "Moved PID %zu from the unused to the used PID list\n", new_pid);
@@ -141,16 +153,16 @@ size_t ProcessRegistry::getNewPID(){
 }
 
 void ProcessRegistry::releasePID(size_t pid){
-  list_lock_.acquire();
+  assert(list_lock_.isHeldBy(currentThread));
 
-  // Find the pid in the used_pids via an iterator (element deletion)
-  auto itr = ustl::find(used_pids_.begin(), used_pids_.end(), pid);
+  // Find the pid in the zobmie_pids via an iterator (element deletion)
+  auto itr = ustl::find(zombie_pids_.begin(), zombie_pids_.end(), pid);
 
-  // Checks if the pid is occuring in the used list / valid
-  assert(itr != used_pids_.end());
+  // Checks if the pid is occuring in the zombie_pids list / valid
+  assert(itr != zombie_pids_.end());
 
-  // Delete the pid from the used_pids list
-  used_pids_.erase(itr);
+  // Delete the pid from the zombie_pids list
+  zombie_pids_.erase(itr);
   
   // Insert the pid to the right position (ascending order)
   if (unused_pids_.size() != 0){
@@ -172,19 +184,31 @@ void ProcessRegistry::releasePID(size_t pid){
     // First element in the list
     unused_pids_.push_back(pid);
   }
-
-  list_lock_.release();
   
-  debug(PROCESS_REG, "Released PID %zu from the used PID list\n", pid);
+  debug(PROCESS_REG, "Released PID %zu from the zombie PID list\n", pid);
 }
 
-bool ProcessRegistry::checkProcessExists(size_t pid)
+bool ProcessRegistry::checkProcessIsUsed(size_t pid)
 {
   assert(list_lock_.isHeldBy(currentThread));
 
   for (auto &used_pid : used_pids_)
   {
     if(pid == used_pid)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool ProcessRegistry::checkProcessIsZombie(size_t pid)
+{
+  assert(list_lock_.isHeldBy(currentThread));
+
+  for (auto &zombie_pid : zombie_pids_)
+  {
+    if(pid == zombie_pid)
     {
       return true;
     }
@@ -209,23 +233,88 @@ void ProcessRegistry::addExitInfo(ProcessExitInfo &pexit_info)
   exit_info_lock_.release();
 }
 
-ProcessExitInfo ProcessRegistry::getExitInfo(size_t pid)
+ProcessExitInfo ProcessRegistry::getExitInfo(size_t pid, bool delete_entry)
 {
-  exit_info_lock_.acquire();
+
+  MutexLock lock(exit_info_lock_);
 
   for (ustl::list<ProcessExitInfo>::iterator itr = pexit_infos_.begin(); itr != pexit_infos_.end(); itr++)
   {
     if(pid == (*itr).pid_)
     {
-      ProcessExitInfo ret((*itr).exit_val_, (*itr).pid_);
-      pexit_infos_.erase(itr);
-      releasePID(pid);
-      exit_info_lock_.release();
+      ProcessExitInfo ret(*itr);
+      if(delete_entry)
+      {
+        //pid_waits_lock_.acquire();
+        for (auto itr = pid_waits_.begin(); itr != pid_waits_.end(); itr++)
+        {
+          if(pid == (*(*itr)).getPid())
+          {
+            delete *itr;
+            pid_waits_.erase(itr);
+            break;
+          }
+        }
+        //pid_waits_lock_.release();
+
+        pexit_infos_.erase(itr);
+        debug(WAIT_PID, "Released PID %ld\n", pid);
+        lockLists();
+        releasePID(pid);
+        unlockLists();
+      }
       return ret;
     }
   }
 
-  exit_info_lock_.release();
+  assert(0 && "The pid exit infos are not present. Some checks are wrong!");
+  return ProcessExitInfo(-1, -1);
+}
 
-  return ProcessExitInfo(-1,-1);
+void ProcessRegistry::makeZombiePID(size_t pid)
+{
+  assert(list_lock_.isHeldBy(currentThread));
+
+  // Find the pid in the used_pids via an iterator (element deletion)
+  auto itr = ustl::find(used_pids_.begin(), used_pids_.end(), pid);
+
+  // Checks if the pid is occuring in the used list / valid
+  assert(itr != used_pids_.end());
+
+  // Delete the pid from the used_pids list
+  used_pids_.erase(itr);
+  
+  // Insert the pid to the right position (ascending order)
+  if (zombie_pids_.size() != 0){
+    for (auto itr = zombie_pids_.begin(); itr != zombie_pids_.end();itr++)
+    { 
+      if(pid > *itr)
+      {
+        zombie_pids_.insert(itr+1, pid);
+        break;
+      }
+      else 
+      {
+        zombie_pids_.insert(itr, pid);
+        break;
+      }
+    }
+  } 
+  else {
+    // First element in the list
+    zombie_pids_.push_back(pid);
+  }
+
+  pid_waits_lock_.acquire();
+  for (auto itr = pid_waits_.begin(); itr != pid_waits_.end(); itr++)
+  {
+    if(pid == (*(*itr)).getPid())
+    {
+      (*(*itr)).signalReady();
+      break;
+    }
+  }
+  pid_waits_lock_.release();
+  
+  debug(PROCESS_REG, "Made PID %zu a zombie\n", pid);
 }

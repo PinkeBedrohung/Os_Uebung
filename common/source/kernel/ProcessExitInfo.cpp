@@ -8,3 +8,8 @@ ProcessExitInfo::~ProcessExitInfo()
 {
 }
 
+ProcessExitInfo::ProcessExitInfo(const ProcessExitInfo& other)
+{
+    exit_val_ = other.exit_val_;
+    pid_ = other.pid_;
+}

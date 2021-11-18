@@ -108,15 +108,14 @@ void Syscall::exit(size_t exit_code)
   if(currentThread->getThreadType() == Thread::USER_THREAD)
   {
     UserThread *currentUserThread = (UserThread *)currentThread;
-    currentUserThread->getProcess()->threads_lock_.acquire();
 
     ProcessExitInfo pexit_info(exit_code, currentUserThread->getProcess()->getPID());
     ProcessRegistry::instance()->lockLists();
+    ProcessRegistry::instance()->makeZombiePID(pexit_info.pid_);
     ProcessRegistry::instance()->addExitInfo(pexit_info);
     ProcessRegistry::instance()->unlockLists();
     debug(WAIT_PID, "Process exited - Exit_val: %ld, PID: %ld\n", pexit_info.exit_val_, pexit_info.pid_);
 
-    currentUserThread->getProcess()->threads_lock_.release();
   }
   currentThread->kill();
 }
@@ -401,6 +400,70 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
   if(status >= USER_BREAK)
   {
     return (size_t) -1UL;
+  }
+
+  bool is_zombie;
+  ProcessRegistry::instance()->lockLists();
+  is_zombie = ProcessRegistry::instance()->checkProcessIsZombie(pid);
+  
+  if(is_zombie)
+  {
+    ProcessExitInfo pexit(ProcessRegistry::instance()->getExitInfo(pid));
+
+    if(status != NULL)
+      *((int*)status) = pexit.exit_val_;
+    debug(WAIT_PID, "Thread:%ld found terminated Process PID: %ld\n", currentThread->getTID(), pid);
+    ProcessRegistry::instance()->unlockLists();
+    return pexit.pid_;
+  }
+
+  bool is_used = ProcessRegistry::instance()->checkProcessIsUsed(pid);  
+
+  if(!is_used)
+  {
+    ProcessRegistry::instance()->unlockLists();
+    return -1;
+  }
+  ProcessRegistry::instance()->unlockLists();
+
+  ProcessRegistry::instance()->pid_waits_lock_.acquire();
+
+  bool delete_entry = false;
+
+  for (auto itr = ProcessRegistry::instance()->pid_waits_.begin(); itr != ProcessRegistry::instance()->pid_waits_.end(); itr++)
+  {
+    auto pid_waits = *itr;
+    if (pid == pid_waits->getPid())
+    {
+      ProcessRegistry::instance()->pid_waits_lock_.release();
+      debug(WAIT_PID, "Thread: %ld waiting for termination of Process PID: %ld\n", currentThread->getTID(), pid);
+      pid_waits->waitUntilReady(currentThread->getTID());
+
+      ProcessRegistry::instance()->pid_waits_lock_.acquire();
+      pid_waits->list_lock_.acquire();
+      pid_waits->removeTid(currentThread->getTID());
+
+      if(pid_waits->getNumTids() == 0)
+      {
+        delete_entry = true;
+        pid_waits->list_lock_.release();
+        debug(WAIT_PID, "Erase pid_waits_ element with pid: %ld\n", pid);
+        //ProcessRegistry::instance()->pid_waits_.erase(itr);
+        //delete pid_waits;
+      }
+      else
+      {
+        pid_waits->list_lock_.release();
+      }
+
+      ProcessExitInfo pexit(ProcessRegistry::instance()->getExitInfo(pid, delete_entry));
+
+      if(status != NULL)
+        *((int*)status) = pexit.exit_val_;
+      
+      ProcessRegistry::instance()->pid_waits_lock_.release();
+      return pid;
+    }
   }
 
   (void)pid;
