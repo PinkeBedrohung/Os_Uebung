@@ -64,12 +64,6 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
   //loader_ = new Loader(*process.getLoader(), fd_);
 
   debug(USERPROCESS, "Loader copy done\n");
-
-  for (size_t offset = 0; offset < vpage_offset_; offset += MAX_THREAD_PAGES)
-  {
-    if ((thread->getStackBase() - (4 + MAX_STACK_ARG_PAGES)) != offset)
-      freePageOffset(offset);
-  }
   
   UserThread *new_thread = new UserThread(*thread, this);
   
@@ -367,6 +361,10 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
 
   argv[(size_t)chars_per_arg.size()] = NULL;
 
+  retvals_lock_.acquire();
+  retvals_.clear();
+  retvals_lock_.release();
+
   Loader *old_loader = loader_;
   ssize_t old_fd = fd_;
   loader_ = loader;
@@ -423,6 +421,15 @@ void UserProcess::freePageOffset(size_t offset)
   available_offsets_.push_back(offset);
   available_offsets_lock_.release();
 }
+
+void UserProcess::clearAvailableOffsets()
+{
+  available_offsets_lock_.acquire();
+  available_offsets_.clear();
+  vpage_offset_ = 0;
+  available_offsets_lock_.release();
+}
+
 
 size_t UserProcess::getVPageOffset()
 {

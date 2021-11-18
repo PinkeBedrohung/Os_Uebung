@@ -55,6 +55,9 @@ void UserThread::execStackSetup(char **argv, ustl::list<int> &chars_per_arg)
 
     (void)max_arg_size_reached;
 
+    process_->clearAvailableOffsets();
+    stack_base_nr_ = process_->getAvailablePageOffset() + (4 + MAX_STACK_ARG_PAGES);;
+
     size_t page_for_stack = PageManager::instance()->allocPPN();
     stack_page_ = USER_BREAK / PAGE_SIZE - stack_base_nr_ - 1;
     vpn_mapped = loader_->arch_memory_.mapPage(stack_page_, page_for_stack, 1);
@@ -128,7 +131,6 @@ void UserThread::createThread(void *entry_function)
     size_t page_for_stack = PageManager::instance()->allocPPN();
 
     stack_page_ = USER_BREAK / PAGE_SIZE - stack_base_nr_ - 1;
-
     bool vpn_mapped = loader_->arch_memory_.mapPage(stack_page_, page_for_stack, 1);
     assert(vpn_mapped && "Virtual page for stack was already mapped - this should never happen");
 
@@ -154,6 +156,8 @@ UserThread::UserThread(UserThread &thread, UserProcess *process) : Thread(proces
     loader_ = process->getLoader();
     to_cancel_ = false;
 
+    stack_base_nr_ = thread.stack_base_nr_;
+    is_joinable_ = thread.is_joinable_;
     stack_page_ = USER_BREAK / PAGE_SIZE - stack_base_nr_ - 1;
     
     ArchThreads::createUserRegisters(user_registers_, loader_->getEntryFunction(),
@@ -163,8 +167,6 @@ UserThread::UserThread(UserThread &thread, UserProcess *process) : Thread(proces
     if (main_console->getTerminal(terminal_number_))
         setTerminal(main_console->getTerminal(terminal_number_));
 
-    stack_base_nr_ = thread.stack_base_nr_;
-    is_joinable_ = thread.is_joinable_;
     copyRegisters(&thread);
     ArchThreads::setAddressSpace(this, loader_->arch_memory_);
     switch_to_userspace_ = 1;

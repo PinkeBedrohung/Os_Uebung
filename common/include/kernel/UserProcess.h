@@ -60,6 +60,7 @@ class UserProcess
     void freePageOffset(size_t offset);
     size_t getAvailablePageOffset();
     size_t getVPageOffset();
+    void clearAvailableOffsets();
 
   private:
     int32 fd_;
