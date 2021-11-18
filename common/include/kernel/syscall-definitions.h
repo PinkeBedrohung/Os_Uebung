@@ -23,6 +23,8 @@
 #define sc_pthread_join 52
 #define sc_pthread_cancel 53
 #define sc_pthread_detach 54
+#define sc_pthread_setcancelstate 55
+#define sc_pthread_setcanceltype 56
 
 #define sc_clock 99
 #define sc_sleep 100
