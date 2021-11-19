@@ -276,8 +276,8 @@ void Syscall::exitThread(size_t retval)
   //SOLVED: when a thread is cancelled, store -1 in retval so join can also return -1 as PTHREAD_CANCELED 
   //TODO unmap pages and delete user regs
   //TODO check for kernel address
-  //((UserThread*)currentThread)->retval_ = retval;
-  ((UserThread*)currentThread)->getProcess()->mapRetVals(currentThread->getTID(), (void*) retval);
+  ((UserThread*)currentThread)->retval_ = retval;
+  // ((UserThread*)currentThread)->getProcess()->mapRetVals(currentThread->getTID(), (void*) retval);
 
   currentThread->kill();
 }
@@ -390,7 +390,8 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
 size_t Syscall::cancelThread(size_t tid)
 {
   UserProcess* process = ((UserThread*)currentThread)->getProcess();
-  ((UserThread*)currentThread)->getProcess()->mapRetVals(currentThread->getTID(), (void*) -1);
+  // ((UserThread*)currentThread)->getProcess()->mapRetVals(currentThread->getTID(), (void*) -1);
+  ((UserThread*)currentThread)->retval_ = -1;
   debug(SYSCALL, "Calling cancelUserThread on Thread: %ld\n", tid);
   return process->cancelUserThread(tid);
 }

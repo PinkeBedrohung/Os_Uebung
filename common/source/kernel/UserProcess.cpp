@@ -160,6 +160,8 @@ void UserProcess::removeThread(Thread *thread){
 
   UserThread* user_thread = (UserThread*) thread;
 
+  mapRetVals(user_thread->getTID(), (void*) user_thread->retval_);
+
   threads_lock_.acquire();
   for (auto it = threads_.begin(); it != threads_.end(); it++)
   {
