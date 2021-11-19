@@ -33,4 +33,6 @@ class Syscall
   static size_t cancelThread(size_t tid);
   static size_t waitpid(size_t pid, pointer status, size_t options);
   static size_t getpid();
+  static size_t setCancelState(size_t state, size_t oldstate);
+  static size_t setCancelType(size_t type, size_t oldtype);
 };

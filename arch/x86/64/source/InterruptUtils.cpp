@@ -28,7 +28,7 @@
 #include "Syscall.h"
 #include "paging-definitions.h"
 #include "PageFaultHandler.h"
-
+#include "UserThread.h"
 #include "8259.h"
 
 #define LO_WORD(x) (((uint32)(x)) & 0x0000FFFFULL)
@@ -209,7 +209,15 @@ extern "C" void pageFaultHandler(uint64 address, uint64 error)
                                    error & FLAG_PF_RDWR,
                                    error & FLAG_PF_INSTR_FETCH);
   if (currentThread->switch_to_userspace_)
+  {
+      if(((UserThread*)currentThread)->to_cancel_ &&  ((UserThread*)currentThread)->canceltype_==((UserThread*)currentThread)->PTHREAD_CANCEL_ASYNCHRONOUS)
+      {
+
+        debug(PAGEFAULT,"CANCEL CALLED FROM PAGEFAULT\n");
+        currentThread->kill();
+      }
     arch_contextSwitch();
+  }
   else
     asm volatile ("movq %%cr3, %%rax; movq %%rax, %%cr3;" ::: "%rax");
 }
