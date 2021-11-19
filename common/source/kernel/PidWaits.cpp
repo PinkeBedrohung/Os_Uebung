@@ -7,7 +7,7 @@ PidWaits::PidWaits(size_t pid) : list_lock_("PidWaits::list_lock_"), pid_to_wait
 
 PidWaits::~PidWaits()
 {
-    debug(WAIT_PID, "Deleted PidWaits PID: %ld\n", pid_to_wait_for_);
+    debug(WAIT_PID, "~PidWaits - PID: %ld\n", pid_to_wait_for_);
 }
 
 void PidWaits::addPtid(size_t pid, size_t tid)

@@ -120,7 +120,7 @@ size_t ProcessRegistry::getNewPID(){
   if (unused_pids_.size() == 0)
   {
     counter_lock_.acquire();
-    new_pid = progs_started_++;
+    new_pid = ++progs_started_;
     counter_lock_.release();
 
     used_pids_.push_back(new_pid);
@@ -160,7 +160,6 @@ void ProcessRegistry::releasePID(size_t pid){
   auto itr = ustl::find(zombie_pids_.begin(), zombie_pids_.end(), pid);
 
   // Checks if the pid is occuring in the zombie_pids list / valid
-  debug(WAIT_PID, "Delete PID %ld from zombie_pids with size %ld\n", *itr, zombie_pids_.size());
   assert(itr != zombie_pids_.end());
 
   // Delete the pid from the zombie_pids list
@@ -187,7 +186,7 @@ void ProcessRegistry::releasePID(size_t pid){
     unused_pids_.push_back(pid);
   }
   
-  debug(PROCESS_REG, "Released PID %zu from the zombie PID list\n", pid);
+  debug(PROCESS_REG, "Moved PID %zu from the zombie_pids_ into unused_pids_\n", pid);
 }
 
 bool ProcessRegistry::checkProcessIsUsed(size_t pid)
@@ -255,7 +254,6 @@ ProcessExitInfo ProcessRegistry::getExitInfo(size_t pid, bool delete_entry)
         {
           if(pid == (*(*itr)).getPid())
           {
-            debug(WAIT_PID, "getExitInfo: delete PID %ld from PidWaits\n", pid);
             delete *itr;
             pid_waits_.erase(itr);
             break;
@@ -265,9 +263,7 @@ ProcessExitInfo ProcessRegistry::getExitInfo(size_t pid, bool delete_entry)
 
         pexit_infos_.erase(itr);
 
-        debug(WAIT_PID, "Release PID %ld from zombie PIDs List\n", pid);
         releasePID(pid);
-        debug(WAIT_PID, "Release PID %ld from zombie PIDs List\n", pid);
       }
       return ret;
     }
@@ -310,7 +306,6 @@ void ProcessRegistry::makeZombiePID(size_t pid)
     // First element in the list
     zombie_pids_.push_back(pid);
   }
-  debug(WAIT_PID, "Zombie PID list is now %ld element big\n", zombie_pids_.size());
   pid_waits_lock_.acquire();
   for (auto itr = pid_waits_.begin(); itr != pid_waits_.end(); itr++)
   {

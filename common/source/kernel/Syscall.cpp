@@ -418,8 +418,8 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
   size_t curr_tid = currentThread->getTID();
   ProcessRegistry *pr_instance = ProcessRegistry::instance();
 
-  // Waiting for his own pid is not allowed
-  if(pid == curr_pid)
+  // Waiting for his own pid is not allowed and pid=0 pid<-1 functionality is not implemented
+  if(pid == curr_pid || pid == 0 || (ssize_t)pid < (ssize_t)-1)
   {
     return (size_t) -1UL;
   }
@@ -465,7 +465,7 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
       pr_instance->pid_waits_lock_.release();
       
       if(status != NULL)
-        *((int*)status) = pexit.exit_val_;
+        *((int*)status) = (pexit.exit_val_&0xFF) + (1<<8);
 
       debug(WAIT_PID, "Thread:%ld found terminated Process PID: %ld with -1\n", curr_tid, pexit.pid_);
       pr_instance->unlockLists();
@@ -509,7 +509,7 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
       pr_instance->pid_waits_lock_.release();
 
       if(status != NULL)
-        *((int*)status) = pexit.exit_val_;
+        *((int*)status) = (pexit.exit_val_&0xFF) + (1<<8);
 
       debug(WAIT_PID, "Thread:%ld found terminated Process PID: %ld\n", curr_tid, pid);
       pr_instance->unlockLists();
@@ -554,7 +554,7 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
       ProcessExitInfo pexit(pr_instance->getExitInfo(check_pid, false));//delete_entry));
       pr_instance->unlockLists();
       if(status != NULL)
-        *((int*)status) = pexit.exit_val_;
+        *((int*)status) = (pexit.exit_val_&0xFF) + (1<<8);
       
       pr_instance->pid_waits_lock_.release();
       return pid;

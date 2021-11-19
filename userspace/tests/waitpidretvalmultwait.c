@@ -13,10 +13,10 @@ int main()
 
     if(var != 0)
     {
-        int retval;
+        int status;
         printf("waiting for pid: %d\n", var);
-        pid_t pid = waitpid(var, &retval, 0);
-        printf("waited for pid %d returned: %ld with retval: %d\n", var, pid, retval);
+        pid_t pid = waitpid(var, &status, 0);
+        printf("waited for pid %d returned: %ld with status: %d = %d + %d\n", var, pid, status, status&(1<<8), status&0xFF);
         
     }
     else

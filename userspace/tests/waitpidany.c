@@ -14,7 +14,7 @@ int main()
         }
         printf("waiting for any pid\n");
         pid_t pid = waitpid(-1, NULL, 0);
-        printf("pid %d returned: %ld\n", var, pid);
+        printf("returned: %ld\n", pid);
     }
     else
     {
