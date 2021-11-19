@@ -15,7 +15,7 @@ int main()
         pthread_create(&(thread[i]), 0x0, &function_print, 0x0);
         printf("%ld", thread[i]);
     }
-
+    sleep(2);
 
     for(int i = 0; i < 1000000; i++)
     {}

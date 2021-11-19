@@ -108,19 +108,18 @@ void Syscall::exit(size_t exit_code)
 {
   debug(SYSCALL, "Syscall::EXIT: called, exit_code: %zd\n", exit_code);
   
-  if(currentThread->getThreadType() == Thread::USER_THREAD)
-  {
-    UserThread *currentUserThread = (UserThread *)currentThread;
+  UserThread *currentUserThread = (UserThread *)currentThread;
 
-    ProcessRegistry::instance()->lockLists();
-    ProcessExitInfo pexit_info(exit_code, currentUserThread->getProcess()->getPID());
-    ProcessRegistry::instance()->makeZombiePID(pexit_info.pid_);
-    ProcessRegistry::instance()->addExitInfo(pexit_info);
-    ProcessRegistry::instance()->signalPidAvailable(pexit_info.pid_);
-    ProcessRegistry::instance()->unlockLists();
-    debug(WAIT_PID, "Process exited - Exit_val: %ld, PID: %ld\n", pexit_info.exit_val_, pexit_info.pid_);
+  ProcessRegistry::instance()->lockLists();
+  ProcessExitInfo pexit_info(exit_code, currentUserThread->getProcess()->getPID());
+  ProcessRegistry::instance()->makeZombiePID(pexit_info.pid_);
+  ProcessRegistry::instance()->addExitInfo(pexit_info);
+  ProcessRegistry::instance()->signalPidAvailable(pexit_info.pid_);
+  ProcessRegistry::instance()->unlockLists();
+  debug(WAIT_PID, "Process exited - Exit_val: %ld, PID: %ld\n", pexit_info.exit_val_, pexit_info.pid_);
 
-  }
+  UserProcess* current_process = currentUserThread->getProcess(); 
+  current_process->cancelNonCurrentThreads(currentThread);
   currentThread->kill();
 }
 
@@ -271,7 +270,8 @@ void Syscall::exitThread(size_t retval)
   //SOLVED: when a thread is cancelled, store -1 in retval so join can also return -1 as PTHREAD_CANCELED 
   //TODO unmap pages and delete user regs
   //TODO check for kernel address
-  ((UserThread*)currentThread)->retval_ = retval;
+  //((UserThread*)currentThread)->retval_ = retval;
+  ((UserThread*)currentThread)->getProcess()->mapRetVals(currentThread->getTID(), (void*) retval);
 
   currentThread->kill();
 }
@@ -327,12 +327,7 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
 {
   UserThread* calling_thread = ((UserThread*)currentThread);
   UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
-  UserThread* thread_to_join = ((UserThread*)current_process->getThread(thread));
-  // if(thread == NULL)
-  // {
-  //   //debug(SYSCALL, "Thread to be joined is non-existent!\n");
-  //   return (size_t)-1U;
-  // }
+  UserThread* thread_to_join = (UserThread*)(current_process->getThread(thread));
 
 
   if((uint64)value_ptr >= USER_BREAK && value_ptr != NULL)
@@ -349,36 +344,39 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
   }
 
    // TODO: is join thread detached? if so return!
-  if(!thread_to_join->isStateJoinable())
+  if(thread_to_join != NULL && !thread_to_join->isStateJoinable())
   {
     return (size_t) -1U;
   }
 
 
-  current_process->retvals_lock_.acquire();
-  if(current_process->retvals_.find(thread) == current_process->retvals_.end())
+  
+  if(thread_to_join != NULL)
   {
-    current_process->retvals_lock_.release();
-
     if(calling_thread->chainJoin(thread_to_join->getTID()))
     {
       return (size_t) -1U;
     }
-    
-    current_process->threads_lock_.acquire();
-    calling_thread->join_ = thread_to_join;
-    current_process->alive_lock_.acquire();
-    current_process->threads_lock_.release();
-    thread_to_join->alive_cond_.waitAndRelease();
-    calling_thread->join_ = NULL;
-  }
-  else 
-    current_process->retvals_lock_.release();
 
+    if (thread_to_join->join_ != NULL)
+    {
+      return (size_t) -1U;
+    }
+    
+    //current_process->threads_lock_.acquire();
+    thread_to_join->join_ = calling_thread;
+    Scheduler::instance()->sleep();
+    thread_to_join->join_ = NULL;
+  }
+  //else 
+    //current_process->retvals_lock_.release();
+
+  current_process->retvals_lock_.acquire();
   if(current_process->retvals_.find(thread) != current_process->retvals_.end()
     && value_ptr != NULL)
     *value_ptr = current_process->retvals_.at(thread);
-
+  current_process->retvals_lock_.release();
+  
   return (size_t) 0;
 }
 
@@ -386,7 +384,7 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
 size_t Syscall::cancelThread(size_t tid)
 {
   UserProcess* process = ((UserThread*)currentThread)->getProcess();
-  ((UserThread*)currentThread)->retval_ = -1; //TODO: define as constant
+  ((UserThread*)currentThread)->getProcess()->mapRetVals(currentThread->getTID(), (void*) -1);
   debug(SYSCALL, "Calling cancelUserThread on Thread: %ld\n", tid);
   return process->cancelUserThread(tid);
 }
@@ -394,7 +392,7 @@ size_t Syscall::cancelThread(size_t tid)
 size_t Syscall::detachThread(size_t tid)
 {
   UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
-  UserThread* thread = ((UserThread*)current_process->getThread(tid));
+  UserThread* thread = (UserThread*)(current_process->getThread(tid));
 
   return thread->setStateDetached();
 }

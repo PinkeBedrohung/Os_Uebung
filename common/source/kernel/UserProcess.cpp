@@ -16,11 +16,10 @@
 UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 pid, uint32 terminal_number) : 
         //holding_cow_(false),
         alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), retvals_lock_("UserProcess::retvals_lock_"),
+        available_offsets_lock_("UserProcess::available_offsets_lock_"),
         fd_(VfsSyscall::open(filename, O_RDONLY)), pid_(pid), filename_(filename), fs_info_(fs_info), 
         terminal_number_(terminal_number)//, parent_process_(0), child_processes_()
-        , num_threads_(0)
-        
-
+        , num_threads_(0), vpage_offset_(0)       
 {
   ProcessRegistry::instance()->processStart(); //should also be called if you fork a process
    if (fd_ >= 0)
@@ -41,11 +40,12 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
 
 UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) : //holding_cow_(true),
          alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), retvals_lock_("UserProcess::retvals_lock_"),
+         available_offsets_lock_("UserProcess::available_offsets_lock_"),
          fd_(VfsSyscall::open(process.filename_, O_RDONLY)),//fd_(VfsSyscall::open(process.getFilename().c_str(), O_RDONLY))
          pid_(ProcessRegistry::instance()->getNewPID()),
          filename_(process.getFilename()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
          terminal_number_(process.getTerminalNumber())//, parent_process_(&process), child_processes_()
-         , num_threads_(0)
+         , num_threads_(0), vpage_offset_(process.getVPageOffset())
 {
   ProcessRegistry::instance()->processStart();
 
@@ -64,7 +64,7 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
   //loader_ = new Loader(*process.getLoader(), fd_);
 
   debug(USERPROCESS, "Loader copy done\n");
-
+  
   UserThread *new_thread = new UserThread(*thread, this);
   
   new_thread->user_registers_->rsp0 = (size_t)new_thread->getKernelStackStartPointer();
@@ -158,12 +158,7 @@ void UserProcess::addThread(Thread *thread){
 void UserProcess::removeThread(Thread *thread){
   assert(thread);
 
-  if(((UserThread*)thread)->isStateJoinable())
-    mapRetVals(thread->getTID(), (void*) ((UserThread*)thread)->retval_);
-
-  alive_lock_.acquire();
-  ((UserThread*)thread)->alive_cond_.broadcast();
-  alive_lock_.release();
+  UserThread* user_thread = (UserThread*) thread;
 
   threads_lock_.acquire();
   for (auto it = threads_.begin(); it != threads_.end(); it++)
@@ -177,6 +172,11 @@ void UserProcess::removeThread(Thread *thread){
     }
   }
   threads_lock_.release();
+
+  if (user_thread->join_ != NULL)
+  {
+    Scheduler::instance()->wake((Thread*) (user_thread->join_));
+  }
 }
 
 uint64 UserProcess::copyPages()
@@ -266,7 +266,6 @@ size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void*
 
 void UserProcess::mapRetVals(size_t tid, void* retval)
 {
-  //TODO if detached don't store anything in mapretvals
   retvals_lock_.acquire();
   retvals_.insert(ustl::make_pair(tid, retval));
   retvals_lock_.release();
@@ -303,15 +302,113 @@ size_t UserProcess::cancelUserThread(size_t tid)
 int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
 {
   cancelNonCurrentThreads(currentThread);
+  size_t return_val = 0;
   while(num_threads_ != 1)
   {Scheduler::instance()->yield();}
 
   if ((unsigned long long)*path >= USER_BREAK)
     {
-      return -1;
+      return_val = -1;
+      return return_val;
     }
 
   //TODO: Old fd deleting has to be handled  
+ 
+  
+  int char_counter;
+  size_t size_counter;
+  int page_counter = 0;
+  ustl::list<int> chars_per_arg;
+  //currentThread;
+  //debug(EXEC,"thread stack = %lx \n arg = %lx",current);
+  //ArchMemoryMapping m = currentThread->loader_->arch_memory_.resolveMapping(currentThread->kernel_registers_->rsp / PAGE_SIZE);
+ // m.pt[m.pti].present;
+  //size_t vpage_nr = USER_BREAK / PAGE_SIZE - (4 + MAX_STACK_ARG_PAGES) - (((UserThread*)currentThread)->getStackBaseNr()  * (MAX_STACK_PAGES + 1));
+  //(void *)(currentThreadRegisters->rbp * PAGE_SIZE + PAGE_SIZE - sizeof(pointer)
+  /*debug(EXEC,"rsp = %p\n",(void*)currentThread->kernel_registers_->rsp );
+  debug(EXEC,"rsp = %p\n",(void*)currentThread->kernel_registers_->rbp );
+  debug(EXEC,"vpage_nr = %p \n" ,(void *)vpage_nr);
+  debug(EXEC,"RECKEN DUATS OB %p\n",arg+73*sizeof(void*));
+  debug(EXEC,"size of pointer %d",(int)sizeof(pointer));*/
+  //size_t Stackbegin = (vpage_nr * PAGE_SIZE + PAGE_SIZE - sizeof(pointer));
+  //debug(EXEC,"pageoffset = %d ", (int)((UserThread*)currentThread)->getPageOffset() );
+  //Stackbegin = (vpage_nr * PAGE_SIZE );
+  //Stackbegin = (vpage_nr * PAGE_SIZE + PAGE_SIZE + sizeof(pointer));
+  //debug(EXEC,"Stackbegin RSP = %p \n" ,(void *)Stackbegin);
+  //debug(EXEC,"Stackbegin RSP c8 = %p \n" ,(void *)(Stackbegin-56));
+  //debug(EXEC,"Stackbegin RSP c8 = %p \n" ,(void *)(Stackbegin-48));
+  //debug(EXEC,"Stackbegin RSP d0= %p \n" ,(void *)(Stackbegin-40));
+  //debug(EXEC,"Stackbegin RSP d8 = %p \n" ,(void *)(Stackbegin-32));
+  //debug(EXEC,"Stackbegin RSP e0= %p \n" ,(void *)(Stackbegin-24));
+  //debug(EXEC,"Stackbegin RSP d0= %p \n" ,(void *)(Stackbegin-(sizeof(pointer) * 5)));
+
+  //size_t lowerbound = Stackbegin  - sizeof(pointer) ; // - ((UserThread*)currentThread)->getPageOffset()//- PAGE_SIZE; // ;
+  //debug(EXEC,"lowerbound = %p \n",(void*)lowerbound);
+  //debug(EXEC,"arg = %p \n",arg);
+  // debug(EXEC,"arg rechnung = %p \n",(void*)((((size_t)arg)-PAGE_SIZE + sizeof(pointer))/PAGE_SIZE));
+  //debug(EXEC,"arg = %p \n",arg+sizeof(void*));
+ // size_t test = sizeof(pointer);
+ //debug(EXEC," WENNS DES IS FICK I WEN = %p \n", (void*)test );
+  if(arg != NULL)
+  {
+    size_counter = sizeof(char*);           //  NULL pointer at end of args
+    size_t arg_index = 0;
+    for (arg_index = 0; arg[arg_index] != NULL; arg_index++)
+    {
+     // debug(EXEC,"sollte gestoppt haben \n");
+      size_counter += sizeof(char*);
+      char_counter = 1;
+      for (size_t pi = 0; arg[arg_index][pi] != '\0'; pi++)
+      {
+        char_counter++;
+        size_counter += sizeof(char);
+      }
+      size_counter += sizeof(char);
+     // debug(EXEC, "char_counter: %d\n", (int)char_counter);
+      chars_per_arg.insert(chars_per_arg.end(), char_counter);
+      //debug(EXEC,"arg_index = %d \n", (int)arg_index);
+      /*if(arg_index % 2 != 0 && (arg + arg_index + 1) <= (void*)(Stackbegin-(sizeof(pointer) * 5)) && (arg + arg_index) > (void*)(Stackbegin - sizeof(pointer) * 6 )  )
+      {
+        debug(EXEC,"I hoss mei lebn\n");
+      }
+      if( arg_index % 2 == 0 && (arg + arg_index + 1) <= (void*)(Stackbegin-(sizeof(pointer) * 3)) && (arg + arg_index) > (void*)(Stackbegin - sizeof(pointer) * 4 )  )
+      {
+        debug(EXEC,"I hoss mei lebn gerade \n");
+      }
+      if((arg + arg_index) < (void *)(Stackbegin-32) &&  (arg + arg_index) >= (void *)(Stackbegin-40))arg_index % 2 != 0 &&
+      {
+        debug(EXEC,"I hoss mei lebn\n");
+      }*/
+      debug(EXEC,"----------------------------------------------------------------------\n");
+      debug(EXEC,"arg[%d] = %p \n",(int)arg_index,((void*)((size_t*)((size_t)arg[arg_index]))));
+      
+    
+      debug(EXEC,"*arg + arg_index = %p\n",(arg + arg_index));
+
+      debug(EXEC,"*arg = %p\n",*arg);
+      
+    }
+    debug(EXEC,"----------------------------------------------------------------------\n");
+    debug(EXEC,"*arg + arg_index = %p\n",(arg + arg_index + 1));
+    arg_index++;
+    debug(EXEC,"*arg + arg_index = %p\n",(arg + arg_index + 1));
+    //debug(EXEC,"size_counter = %d\n", (int)size_counter);
+    //debug(EXEC,"MAX ARG SIZE = %d \n", ARG)
+    page_counter = size_counter / PAGE_SIZE;
+
+    if ((size_counter % PAGE_SIZE) != 0)
+    {
+      page_counter++;
+    }
+    assert(page_counter != 0 && "Allocated 0 pages for arguments of exec");
+  }
+  if ((page_counter) > MAX_STACK_ARG_PAGES)
+  {
+    return_val = -1;
+    return return_val;
+  }
+  //debug(EXEC,"UserProcess  page counter = %d\n",page_counter);
+
   filename_ = ustl::string(path);
   int32_t fd = VfsSyscall::open(filename_.c_str(), O_RDONLY); 
   debug(USERPROCESS,"Filedescriptor ========= %d \n",fd);
@@ -321,24 +418,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   loader->loadExecutableAndInitProcess();
 
   ArchThreads::printThreadRegisters(currentThread);
-  
-  int char_counter;
-  
-  ustl::list<int> chars_per_arg;
 
-  if(arg != NULL)
-  {
-    for (size_t i = 0; arg[i] != NULL; i++)
-    {
-      char_counter = 1;
-      for (size_t pi = 0; arg[i][pi] != '\0'; pi++)
-      {
-        char_counter++;
-      }
-      debug(EXEC, "char_counter: %d\n", char_counter);
-      chars_per_arg.insert(chars_per_arg.end(), char_counter);
-    }
-  }
 
   char **argv = (char**)kmalloc(((size_t)chars_per_arg.size() + 1) * sizeof(char*));
 
@@ -353,6 +433,10 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
 
   argv[(size_t)chars_per_arg.size()] = NULL;
 
+  retvals_lock_.acquire();
+  retvals_.clear();
+  retvals_lock_.release();
+
   Loader *old_loader = loader_;
   ssize_t old_fd = fd_;
   loader_ = loader;
@@ -360,8 +444,11 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   currentThread->loader_ = loader;
   
   //ArchThreads::setAddressSpace(currentThread, loader_->arch_memory_);
-  ((UserThread*)currentThread)->execStackSetup(argv,chars_per_arg);
-
+  return_val = ((UserThread*)currentThread)->execStackSetup(argv, chars_per_arg, page_counter, size_counter);
+  if(return_val != 0)
+  {
+    return return_val;
+  }
   delete old_loader;
 
   if (old_fd > 0)
@@ -384,8 +471,46 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
 
   currentThread->switch_to_userspace_ = 1;
   Scheduler::instance()->yield();
-  
-  return 0;
+  return_val = 0;
+  return return_val;
 }
   
+size_t UserProcess::getAvailablePageOffset()
+{
+  size_t offset = 0;
+  available_offsets_lock_.acquire();
+  if (available_offsets_.size() == 0)
+  {
+    offset = vpage_offset_;
+    vpage_offset_ += MAX_THREAD_PAGES;
+  }
+  else
+  {
+    offset = available_offsets_[0];
+    available_offsets_.pop_front();
+  }
+  available_offsets_lock_.release();
 
+  return offset;
+}
+
+void UserProcess::freePageOffset(size_t offset)
+{
+  available_offsets_lock_.acquire();
+  available_offsets_.push_back(offset);
+  available_offsets_lock_.release();
+}
+
+void UserProcess::clearAvailableOffsets()
+{
+  available_offsets_lock_.acquire();
+  available_offsets_.clear();
+  vpage_offset_ = 0;
+  available_offsets_lock_.release();
+}
+
+
+size_t UserProcess::getVPageOffset()
+{
+  return vpage_offset_;
+}
