@@ -16,7 +16,8 @@ int main()
         int status;
         printf("waiting for pid: %d\n", var);
         pid_t pid = waitpid(var, &status, 0);
-        printf("waited for pid %d returned: %ld with status: %d = %d + %d\n", var, pid, status, status&(1<<8), status&0xFF);
+        //status&(1<<8) represents the bit that's set if a exit code has been added
+        printf("waited for pid %d returned: %ld with status: %d = %d + retval %d\n", var, pid, status, status&(1<<8), status&0xFF);
         
     }
     else
