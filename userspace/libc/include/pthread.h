@@ -9,7 +9,15 @@ extern "C" {
 //pthread typedefs
 typedef size_t pthread_t;
 typedef unsigned int pthread_attr_t;
+enum
+{
+  PTHREAD_CANCEL_ENABLE,PTHREAD_CANCEL_DISABLE
 
+};
+enum
+{
+  PTHREAD_CANCEL_DEFERRED, PTHREAD_CANCEL_ASYNCHRONOUS
+};
 //pthread mutex typedefs
 typedef unsigned int pthread_mutex_t;
 typedef unsigned int pthread_mutexattr_t;
@@ -30,6 +38,9 @@ extern void entry_function(void* (*start_routine)(void*), void* arg);
 extern void pthread_exit(void *value_ptr);
 
 extern int pthread_cancel(pthread_t thread);
+
+extern int pthread_setcanceltype(int type, int *oldtype);
+extern int pthread_setcancelstate(int type, int *oldtype);
 
 extern int pthread_join(pthread_t thread, void **value_ptr);
 

@@ -25,7 +25,20 @@ public:
     {
         JOINABLE, DETACHED
     };
-
+    enum
+    {
+        PTHREAD_CANCEL_ENABLE,
+        #define PTHREAD_CANCEL_ENABLE   PTHREAD_CANCEL_ENABLE
+        PTHREAD_CANCEL_DISABLE
+        #define PTHREAD_CANCEL_DISABLE  PTHREAD_CANCEL_DISABLE
+    };
+    enum
+    {
+        PTHREAD_CANCEL_DEFERRED,
+        #define PTHREAD_CANCEL_DEFERRED	PTHREAD_CANCEL_DEFERRED
+        PTHREAD_CANCEL_ASYNCHRONOUS
+        #define PTHREAD_CANCEL_ASYNCHRONOUS	PTHREAD_CANCEL_ASYNCHRONOUS
+    };
     UserThread(UserProcess *process);
     UserThread(UserThread &thread, UserProcess* process = NULL);
     UserThread(UserProcess *process,  void* (*start_routine)(void*), void* args, void* entry_function);
@@ -52,6 +65,9 @@ public:
     size_t retval_;
     int is_joinable_;
 
+  
+    size_t canceltype_ = PTHREAD_CANCEL_DEFERRED;
+    size_t cancelstate_ = PTHREAD_CANCEL_ENABLE;
 private:
     void createThread(void* entry_function);
     size_t stack_base_nr_;
