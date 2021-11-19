@@ -4,9 +4,9 @@
 void* function_print()
 {
     printf("Hello!");
-    int stateret = pthread_setcancelstate(5, NULL);
+    int stateret = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     printf("\nstate retval: %d", stateret);
-    int typeret = pthread_setcanceltype(5, NULL);
+    int typeret = pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     printf("\ntype retval: %d\n", typeret);
     
     return NULL;
