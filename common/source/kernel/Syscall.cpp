@@ -317,16 +317,11 @@ int Syscall::exec(const char *path, char const* arg[])
 
   if(((UserThread*)currentThread)->getProcess() == 0)
   {
-    debug(MAIN,"jow du startest grod mit da shell a exec is ned so nice\n");
     return -1;
   }
 
   return ((UserThread *)currentThread)->getProcess()->replaceProcessorImage(path, arg);
 
-  
-  
-  
-  
 }
 
 size_t Syscall::joinThread(size_t thread, void** value_ptr)
@@ -539,7 +534,7 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
       pr_instance->pid_waits_lock_.release();
       debug(WAIT_PID, "Thread: %ld waiting for termination of Process PID: %ld\n", curr_tid, check_pid);
       pid_waits->waitUntilReady(curr_pid, curr_tid);
-
+      pr_instance->lockLists();
       pr_instance->pid_waits_lock_.acquire();
       pid_waits->list_lock_.acquire();
       pid_waits->removePtid(curr_pid, curr_tid);
@@ -548,7 +543,7 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
       {
         delete_entry = true;
         pid_waits->list_lock_.release();
-        debug(WAIT_PID, "Erase pid_waits_ element with pid: %ld\n", check_pid);
+        //debug(WAIT_PID, "Erase pid_waits_ element with pid: %ld\n", check_pid);
         //ProcessRegistry::instance()->pid_waits_.erase(itr);
         //delete pid_waits;
       }
@@ -556,13 +551,14 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
       {
         pid_waits->list_lock_.release();
       }
-      pr_instance->lockLists();
+      
       ProcessExitInfo pexit(pr_instance->getExitInfo(check_pid, false));//delete_entry));
-      pr_instance->unlockLists();
+      
       if(status != NULL)
         *((int*)status) = (pexit.exit_val_&0xFF) + (1<<8);
       
       pr_instance->pid_waits_lock_.release();
+      pr_instance->unlockLists();
       return pid;
     }
   }

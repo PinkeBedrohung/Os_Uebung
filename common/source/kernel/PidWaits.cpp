@@ -22,10 +22,12 @@ void PidWaits::addPtid(size_t pid, size_t tid)
 void PidWaits::removePtid(size_t pid, size_t tid)
 {
     assert(list_lock_.isHeldBy(currentThread));
+    debug(WAIT_PID, "Try to remove PID %ld TID %ld\n",pid, tid);
     for (auto itr = ptids_.begin(); itr != ptids_.end(); itr++)
     {
         if(tid == (*itr).tid_ && pid == (*itr).pid_)
         {
+            debug(WAIT_PID, "Remove PID %ld TID %ld\n",pid, tid);
             ptids_.erase(itr);
             break;
         }

@@ -240,12 +240,12 @@ ProcessExitInfo ProcessRegistry::getExitInfo(size_t pid, bool delete_entry)
   assert(list_lock_.isHeldBy(currentThread));
   MutexLock lock(exit_info_lock_);
 
-  for (ustl::list<ProcessExitInfo>::iterator itr = pexit_infos_.begin(); itr != pexit_infos_.end(); itr++)
+  for (ustl::list<ProcessExitInfo>::iterator pei_itr = pexit_infos_.begin(); pei_itr != pexit_infos_.end(); pei_itr++)
   {
-    if(pid == (*itr).pid_)
+    if(pid == (*pei_itr).pid_)
     {
       debug(WAIT_PID, "getExitInfo: found PID %ld\n", pid);
-      ProcessExitInfo ret(*itr);
+      ProcessExitInfo ret(*pei_itr);
       if(delete_entry)
       {
         assert(pid_waits_lock_.isHeldBy(currentThread));
@@ -261,8 +261,9 @@ ProcessExitInfo ProcessRegistry::getExitInfo(size_t pid, bool delete_entry)
         }
         assert(pid_waits_lock_.isHeldBy(currentThread));
 
-        pexit_infos_.erase(itr);
+        pexit_infos_.erase(pei_itr);
 
+        debug(WAIT_PID, "Release zombie PID: %ld--------------------------------------------\n", pid);
         releasePID(pid);
       }
       return ret;

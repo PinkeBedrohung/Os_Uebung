@@ -230,6 +230,12 @@ void UserProcess::cancelNonCurrentThreads(Thread *thread)
      //debug(USERPROCESS, "You came to the wrong house fool \n");
     if ((*it)->getTID() != thread->getTID())
     {
+      while((*it)->holding_lock_list_ != 0)
+      {
+        threads_lock_.release();
+        Scheduler::instance()->yield();
+        threads_lock_.acquire();
+      }
       (*it)->kill();
       debug(USERPROCESS, "Removed TID %zu from Threadlist of PID %zu - %zu still assigned to the process\n", thread->getTID(), getPID(), getNumThreads());
     }
