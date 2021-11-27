@@ -7,7 +7,7 @@
 
 enum ThreadState
 {
-  Running, Sleeping, ToBeDestroyed, USleep
+  Running, Sleeping, ToBeDestroyed, USleep, Cancelled
 };
 
 

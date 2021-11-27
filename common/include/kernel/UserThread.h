@@ -47,8 +47,6 @@ public:
     UserProcess *getProcess();
     void copyRegisters(UserThread *thread);
 
-
-    bool checkIfLastThread();
     size_t getStackBase();
     size_t getStackPage();
     size_t getNumPages();
@@ -65,9 +63,14 @@ public:
     size_t retval_;
     int is_joinable_;
 
+    bool is_killed_;
   
     size_t canceltype_ = PTHREAD_CANCEL_DEFERRED;
     size_t cancelstate_ = PTHREAD_CANCEL_ENABLE;
+
+    ustl::list<size_t> getUsedOffsets();
+
+    void cleanupThread(size_t retval);
 private:
     void createThread(void* entry_function);
     size_t stack_base_nr_;

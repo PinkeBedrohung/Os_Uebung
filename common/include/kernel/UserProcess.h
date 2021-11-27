@@ -40,7 +40,7 @@ class UserProcess
     size_t getNumThreads();
     //Mutex* fork_lock_;
     //ustl::list<UserProcess *> *cow_holding_ps;
-    void cancelNonCurrentThreads(Thread *thread);
+    void cancelNonCurrentThreads();
     int  replaceProcessorImage(const char *path,char const* arg[]);
     //Mutex* fork_lock_;
     //ustl::list<UserProcess *> *cow_holding_ps;

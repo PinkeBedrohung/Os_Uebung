@@ -85,6 +85,7 @@ uint32 Scheduler::schedule()
         ((UserThread*)currentThread)->canceltype_==((UserThread*)currentThread)->PTHREAD_CANCEL_ASYNCHRONOUS)
   {
     debug(SCHEDULER,"CANCEL CALLED FROM SCHEDULER\n");
+    ((UserThread*)currentThread)->cleanupThread(-1);
     currentThread->kill();
     return 0;
   }
@@ -164,11 +165,7 @@ void Scheduler::cleanupDeadThreads()
   {
     for (uint32 i = 0; i < thread_count; ++i)
     {
-      if (destroy_list[i]->getThreadType() == Thread::USER_THREAD)
-      {
-        debug(SCHEDULER, "Remove thread TID %zu from process PID %zu\n", destroy_list[i]->getTID(), ((UserThread *)destroy_list[i])->getProcess()->getPID());
-        ((UserThread *)destroy_list[i])->getProcess()->removeThread(destroy_list[i]);
-      }
+      debug(SCHEDULER, "delete UserThread - TID %zu\n", destroy_list[i]->getTID());
       delete destroy_list[i];
     }
     debug(SCHEDULER, "cleanupDeadThreads: done\n");
