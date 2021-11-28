@@ -272,12 +272,13 @@ size_t UserProcess::cancelUserThread(size_t tid)
   threads_lock_.acquire();
   for (auto it = threads_.begin(); it != threads_.end(); it++)
   {
-    if ((*it)->getTID() == tid)
+    if ((*it)->getTID() == tid && ((UserThread*)*it)->cancelstate_ == 0)
     {
       debug(USERTHREAD, "Canceling thread: %ld\n",(*it)->getTID());
       
       debug(USERTHREAD, "switch_to_usersp: %d, is_currentthread: %d \n", ((UserThread*)(*it))->switch_to_userspace_, (int)((*it)==currentThread));
-      if(((UserThread*)(*it))->switch_to_userspace_ && (*it) != currentThread)
+      debug(USERTHREAD, "Cancelation state: %ld", (((UserThread*)*it)->cancelstate_));
+      if(((UserThread*)(*it))->switch_to_userspace_ && (*it) != currentThread )
       {
         if ((*it)->schedulable())
         {

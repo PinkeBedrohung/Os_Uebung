@@ -607,6 +607,7 @@ size_t Syscall::setCancelState(size_t state, size_t oldstate)
 
   current_process->threads_lock_.acquire();
   thread->cancelstate_ = state;
+  
   current_process->threads_lock_.release();
 
   return 0;
