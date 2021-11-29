@@ -19,7 +19,7 @@ enum
   PTHREAD_CANCEL_DEFERRED, PTHREAD_CANCEL_ASYNCHRONOUS
 };
 //pthread mutex typedefs
-typedef unsigned int pthread_mutex_t;
+//typedef unsigned int pthread_mutex_t;
 typedef unsigned int pthread_mutexattr_t;
 
 //pthread spinlock typedefs
@@ -28,6 +28,13 @@ typedef unsigned int pthread_spinlock_t;
 //pthread cond typedefs
 typedef unsigned int pthread_cond_t;
 typedef unsigned int pthread_condattr_t;
+
+typedef struct
+{
+    int value;
+    int init;
+    int owner;
+} pthread_mutex_t;
 
 extern int pthread_create(pthread_t *thread,
          const pthread_attr_t *attr, void *(*start_routine)(void *),
