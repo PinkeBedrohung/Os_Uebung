@@ -27,6 +27,8 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
   cpu_start_rdtsc = 0;
   if (!loader_ || !loader_->loadExecutableAndInitProcess())
   {
+    /// TODO MULTITHREADING: Other -1 Close fd? Delete Loader?
++    /// Check out createProcess in ProcRegistry -> We are accessing a dead process afterwards
     debug(USERPROCESS, "Error: loading %s failed!\n", filename.c_str());
     delete this;
     return;
@@ -46,6 +48,7 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
          filename_(process.getFilename()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
          terminal_number_(process.getTerminalNumber())//, parent_process_(&process), child_processes_()
          , num_threads_(0), vpage_offset_(process.getVPageOffset())
+         /// TODO FORK: RC -0 getVPageOffset gets set to 0 with lock while calling exec but who cares
 {
   ProcessRegistry::instance()->processStart();
 
@@ -110,6 +113,7 @@ void UserProcess::setPID(size_t pid){
 
 Thread* UserProcess::getThread(size_t tid)
 {
+  /// TODO MULTITHREADING: This is locked locally... RC -3
   threads_lock_.acquire();
   for (auto thread : threads_)
   {
@@ -227,7 +231,7 @@ void UserProcess::cancelNonCurrentThreads()
         threads_lock_.release();
         ((UserThread*)(*it))->cleanupThread(-1);
         threads_lock_.acquire();
-        (*it)->kill();
+        (*it)->kill();/// TODO MULTITHREADING: Severe RC -3
         debug(USERPROCESS, "Removed TID %zu from Threadlist of PID %zu - %zu still assigned to the process\n", currentThread->getTID(), getPID(), getNumThreads());
       }
     }
@@ -250,6 +254,7 @@ size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void*
     num_threads_++;
 
     Scheduler::instance()->addNewThread(thread);
+    /// TODO MULTITHREADING: Other -1 Dereferencing ptr with kernel lock
     *tid = thread->getTID();
     threads_lock_.release();
     return 0;
@@ -286,6 +291,7 @@ size_t UserProcess::cancelUserThread(size_t tid)
           threads_lock_.release();
           ((UserThread*)(*it))->cleanupThread(-1);
           (*it)->kill();
++        /// TODO MULTITHREADING: Severe RC -3
         }
       }
       else
@@ -310,13 +316,16 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   while(num_threads_ != 1)
   {Scheduler::instance()->yield();}
 
+  /// TODO EXEC: Other -3 Cancelling all threads before doing param checks...
+  /// TODO EXEC: Params -2/-3 arg array can be a kernel pointer or contain a kernel pointer...
+
   if ((unsigned long long)*path >= USER_BREAK)
     {
       return_val = -1;
       return return_val;
     }
 
-  //TODO: Old fd deleting has to be handled  
+  //Old fd deleting has to be handled
  
   
   int char_counter;
@@ -380,7 +389,6 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   loader->loadExecutableAndInitProcess();
 
   ArchThreads::printThreadRegisters(currentThread);
-
 
   char **argv = (char**)kmalloc(((size_t)chars_per_arg.size() + 1) * sizeof(char*));
 

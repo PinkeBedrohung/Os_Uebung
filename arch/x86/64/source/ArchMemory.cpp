@@ -174,6 +174,7 @@ ArchMemory::~ArchMemory()
                 if (pt[pti].present)
                 {
                   pageInfo[pt[pti].page_ppn].lockRefCount();
+                  /// TODO FORK: CoW Feature -1 No CoW and no Writeable Bit?!
                   pt[pti].present = 0;
                   
                   pageInfo[pt[pti].page_ppn].decRefCount();

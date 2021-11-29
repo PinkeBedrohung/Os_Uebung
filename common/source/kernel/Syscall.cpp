@@ -17,8 +17,10 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
 {
   size_t return_value = 0;
   debug(SYSCALL, "CurrentThread %ld to_cancel_: %d\n",((UserThread*)currentThread)->getTID(), (int)((UserThread*)currentThread)->to_cancel_);
+   /// TODO MULTITHREADING: RC -1
   if(((UserThread*)currentThread)->to_cancel_)
   {
+    /// TODO MULTITHREADING: This does not save retval?
     ((UserThread*)currentThread)->cleanupThread(-1);
     currentThread->kill();
     return 0;
@@ -94,7 +96,7 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     case sc_fork:
       return_value = fork();
       break;
-    case  sc_exec:
+    case sc_exec:
       return_value = exec((const char *)arg1, (char const**)arg2);
       break;
     case  sc_waitpid:
@@ -286,8 +288,9 @@ void Syscall::exitThread(size_t retval)
 
 size_t Syscall::clock()
 {
+  /// TODO OTHER: (Clock) Clock is about CPU time, not total time, so calculating now - start is incorrect
   unsigned long long rdtsc = ArchThreads::rdtsc(); //now
-  unsigned long long difference = rdtsc -((UserThread*)currentThread)->getProcess()->cpu_start_rdtsc;
+  unsigned long long difference = rdtsc - ((UserThread*)currentThread)->getProcess()->cpu_start_rdtsc;
   //debug(SYSCALL,"Difference: %lld\n", difference);
   //debug(SYSCALL,"rdtsc: %lld\n", rdtsc);
   size_t retval = (difference)/(Scheduler::instance()->average_rdtsc_/(54925439/1000));
@@ -298,8 +301,8 @@ size_t Syscall::clock()
 
 size_t Syscall::sleep(unsigned int seconds)
 {
+  /// Reasons for inaccuracy are in the calculation of average_rdtsc_
   unsigned long long current_rdtsc = ArchThreads::rdtsc();
-
   //debug(SYSCALL,"rdtsc time: %lld\n", current_rdtsc);
   unsigned long long additional_time = (seconds*1000)*(Scheduler::instance()->average_rdtsc_/(54925439/1000000));
   unsigned long long expected_time = current_rdtsc + additional_time; //start rdtsc + additional time
@@ -312,11 +315,13 @@ size_t Syscall::sleep(unsigned int seconds)
 
 int Syscall::exec(const char *path, char const* arg[])
 {
+  /// TODO EXEC: -1 Params why a path dereference for the check?
   if ((size_t)*path >= USER_BREAK)
   {
     return -1;
   }
 
+  /// This check does nothing
   if(((UserThread*)currentThread)->getProcess() == 0)
   {
     return -1;
@@ -400,12 +405,12 @@ size_t Syscall::cancelThread(size_t tid)
 {
   UserProcess* process = ((UserThread*)currentThread)->getProcess();
   UserThread* thread = (UserThread*)(process->getThread(tid));
-
+/// Mapping retval before thread is actually dead? What if thread calls pthread_exit(-1), it gets identified as cancelled?
   if (thread == NULL)
   {
     return (size_t) -1U;
   }
-
+  /// TODO MULTITHREADING: NonStd -1 Should return -1 if thread is not found, here we access a nullptr
   debug(SYSCALL, "Calling cancelUserThread on Thread: %ld\n", tid);
   return process->cancelUserThread(tid);
 }
@@ -493,7 +498,8 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
       pid_waits->list_lock_.release();
       ProcessExitInfo pexit(pr_instance->getExitInfo(ret_pid, delete_entry));
       pr_instance->pid_waits_lock_.release();
-      
+
+      /// TODO EXEC: (Waitpid) Other -2 PF with kernel lock (Happens thrice in this function)
       if(status != NULL)
         *((int*)status) = (pexit.exit_val_&0xFF) + (1<<8);
 
@@ -591,7 +597,6 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
       return pid;
     }
   }
-  
   return -1;
 }
 
@@ -606,7 +611,7 @@ size_t Syscall::setCancelState(size_t state, size_t oldstate)
   UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
 
   if(state != thread->PTHREAD_CANCEL_ENABLE && state != thread->PTHREAD_CANCEL_DISABLE) return -1;
-  if( oldstate >= USER_BREAK) return -1;
+  if(state >= USER_BREAK || oldstate >= USER_BREAK) return -1;
 
   current_process->threads_lock_.acquire();
   thread->cancelstate_ = state;
@@ -622,7 +627,7 @@ size_t Syscall::setCancelType(size_t type, size_t oldtype)
 
   if(type != thread->PTHREAD_CANCEL_ASYNCHRONOUS && type != thread->PTHREAD_CANCEL_DEFERRED)
     return -1;
-  if(oldtype >= USER_BREAK)
+  if(type >= USER_BREAK || oldtype >= USER_BREAK)
     return -1;
 
   current_process->threads_lock_.acquire();

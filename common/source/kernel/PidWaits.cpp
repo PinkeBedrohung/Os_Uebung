@@ -46,6 +46,7 @@ void PidWaits::waitUntilReady(size_t pid, size_t tid)
 {
     addPtid(pid, tid);
     cond_lock_.acquire();
+    /// TODO EXEC: (Waitpid) RC -2 Incorrect CV use / What if signal comes in this line? -> Deadlock
     pid_ready_cond_.waitAndRelease();
 }
 

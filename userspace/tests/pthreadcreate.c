@@ -1,6 +1,6 @@
 #include "pthread.h"
 #include "stdio.h"
-
+#include "assert.h"
 void* function_print()
 {
     printf("Hello!");

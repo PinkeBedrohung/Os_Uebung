@@ -7,7 +7,7 @@ int main()
     //int var = 0;
     //(void)var;
     pid_t Pid = fork();
-    
+
     //execDone = 1;
     if(Pid != 0)
     {
@@ -17,7 +17,7 @@ int main()
         //execDone = execv("/usr/mult.sweb",NULL);
         //while(execDone == 1);
         printf("exec done \n");
-     
+
     }
     else
     {
@@ -31,7 +31,7 @@ int main()
     {
         var++;
     }
-    
+
     while (1)
     {
     }*/

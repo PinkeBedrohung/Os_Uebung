@@ -173,7 +173,7 @@ extern "C" void irqHandler_0()
     //debug(USERTHREAD, "rdtsc: %lld \n",st);
     if(st > 0 && nr_ticks > 5)
     {
-
+      debug(MAIN, "WHAT Adding\n");
       et += ArchThreads::rdtsc()-st;
       counter++;
       if(counter == 10) Scheduler::instance()->average_rdtsc_ = et/10; //average cycles

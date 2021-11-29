@@ -1,0 +1,480 @@
+diff --git a/arch/x86/64/source/ArchMemory.cpp b/arch/x86/64/source/ArchMemory.cpp
+index 84dadc9b..ff1f5eec 100644
+--- a/arch/x86/64/source/ArchMemory.cpp
++++ b/arch/x86/64/source/ArchMemory.cpp
+@@ -174,6 +174,7 @@ ArchMemory::~ArchMemory()
+                 if (pt[pti].present)
+                 {
+                   pageInfo[pt[pti].page_ppn].lockRefCount();
++                  /// TODO FORK: CoW Feature -1 No CoW and no Writeable Bit?!
+                   pt[pti].present = 0;
+                   
+                   pageInfo[pt[pti].page_ppn].decRefCount();
+diff --git a/arch/x86/64/source/InterruptUtils.cpp b/arch/x86/64/source/InterruptUtils.cpp
+index ce38fa7d..fe1df3a3 100644
+--- a/arch/x86/64/source/InterruptUtils.cpp
++++ b/arch/x86/64/source/InterruptUtils.cpp
+@@ -173,7 +173,7 @@ extern "C" void irqHandler_0()
+     //debug(USERTHREAD, "rdtsc: %lld \n",st);
+     if(st > 0 && nr_ticks > 5)
+     {
+-
++      debug(MAIN, "WHAT Adding\n");
+       et += ArchThreads::rdtsc()-st;
+       counter++;
+       if(counter == 10) Scheduler::instance()->average_rdtsc_ = et/10; //average cycles
+diff --git a/common/source/kernel/PidWaits.cpp b/common/source/kernel/PidWaits.cpp
+index 4aad3052..501d82ce 100644
+--- a/common/source/kernel/PidWaits.cpp
++++ b/common/source/kernel/PidWaits.cpp
+@@ -46,6 +46,7 @@ void PidWaits::waitUntilReady(size_t pid, size_t tid)
+ {
+     addPtid(pid, tid);
+     cond_lock_.acquire();
++    /// TODO EXEC: (Waitpid) RC -2 Incorrect CV use / What if signal comes in this line? -> Deadlock
+     pid_ready_cond_.waitAndRelease();
+ }
+ 
+diff --git a/common/source/kernel/Scheduler.cpp b/common/source/kernel/Scheduler.cpp
+index d1b16166..1e9ec0f5 100644
+--- a/common/source/kernel/Scheduler.cpp
++++ b/common/source/kernel/Scheduler.cpp
+@@ -51,7 +51,7 @@ uint32 Scheduler::schedule()
+     if((*it)->schedulable())
+     {
+       currentThread = *it;
+-     
++
+       break;
+     }
+      
+diff --git a/common/source/kernel/Syscall.cpp b/common/source/kernel/Syscall.cpp
+index 40bbbcb9..41073989 100644
+--- a/common/source/kernel/Syscall.cpp
++++ b/common/source/kernel/Syscall.cpp
+@@ -17,11 +17,14 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
+ {
+   size_t return_value = 0;
+   debug(SYSCALL, "CurrentThread %ld to_cancel_: %d\n",((UserThread*)currentThread)->getTID(), (int)((UserThread*)currentThread)->to_cancel_);
++  /// TODO MULTITHREADING: RC -1
+   if(((UserThread*)currentThread)->to_cancel_)
+   {
++    /// TODO MULTITHREADING: This does not save retval?
+     currentThread->kill();
+     return 0;
+   }
++
+   if ((syscall_number != sc_sched_yield) && (syscall_number != sc_outline)) // no debug print because these might occur very often
+   {
+     debug(SYSCALL, "Syscall %zd called with arguments %zd(=%zx) %zd(=%zx) %zd(=%zx) %zd(=%zx) %zd(=%zx)\n",
+@@ -90,7 +93,7 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
+     case sc_fork:
+       return_value = fork();
+       break;
+-    case  sc_exec:
++    case sc_exec:
+       return_value = exec((const char *)arg1, (char const**)arg2);
+       break;
+     case  sc_waitpid:
+@@ -273,9 +276,7 @@ size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, s
+ 
+ void Syscall::exitThread(size_t retval)
+ {
+-  //SOLVED: when a thread is cancelled, store -1 in retval so join can also return -1 as PTHREAD_CANCELED 
+-  //TODO unmap pages and delete user regs
+-  //TODO check for kernel address
++  //SOLVED: when a thread is cancelled, store -1 in retval so join can also return -1 as PTHREAD_CANCELED
+   //((UserThread*)currentThread)->retval_ = retval;
+   ((UserThread*)currentThread)->getProcess()->mapRetVals(currentThread->getTID(), (void*) retval);
+ 
+@@ -284,8 +285,9 @@ void Syscall::exitThread(size_t retval)
+ 
+ size_t Syscall::clock()
+ {
++  /// TODO OTHER: (Clock) Clock is about CPU time, not total time, so calculating now - start is incorrect
+   unsigned long long rdtsc = ArchThreads::rdtsc(); //now
+-  unsigned long long difference = rdtsc -((UserThread*)currentThread)->getProcess()->cpu_start_rdtsc;
++  unsigned long long difference = rdtsc - ((UserThread*)currentThread)->getProcess()->cpu_start_rdtsc;
+   //debug(SYSCALL,"Difference: %lld\n", difference);
+   //debug(SYSCALL,"rdtsc: %lld\n", rdtsc);
+   size_t retval = (difference)/(Scheduler::instance()->average_rdtsc_/(54925439/1000));
+@@ -296,8 +298,8 @@ size_t Syscall::clock()
+ 
+ size_t Syscall::sleep(unsigned int seconds)
+ {
++  /// Reasons for inaccuracy are in the calculation of average_rdtsc_
+   unsigned long long current_rdtsc = ArchThreads::rdtsc();
+-
+   //debug(SYSCALL,"rdtsc time: %lld\n", current_rdtsc);
+   unsigned long long additional_time = (seconds*1000)*(Scheduler::instance()->average_rdtsc_/(54925439/1000000));
+   unsigned long long expected_time = current_rdtsc + additional_time; //start rdtsc + additional time
+@@ -310,11 +312,13 @@ size_t Syscall::sleep(unsigned int seconds)
+ 
+ int Syscall::exec(const char *path, char const* arg[])
+ {
++  /// TODO EXEC: -1 Params why a path dereference for the check?
+   if ((size_t)*path >= USER_BREAK)
+   {
+     return -1;
+   }
+ 
++  /// This check does nothing
+   if(((UserThread*)currentThread)->getProcess() == 0)
+   {
+     return -1;
+@@ -344,7 +348,7 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
+     return (size_t) -1U;
+   }
+ 
+-   // TODO: is join thread detached? if so return!
++   // TODO MULTITHREADING: RC -1
+   if(thread_to_join != NULL && !thread_to_join->isStateJoinable())
+   {
+     return (size_t) -1U;
+@@ -359,12 +363,14 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
+       return (size_t) -1U;
+     }
+ 
++    /// TODO MULTITHREADING: RC -1
+     if (thread_to_join->join_ != NULL)
+     {
+       return (size_t) -1U;
+     }
+-    
++
+     //current_process->threads_lock_.acquire();
++    /// TODO MULTITHREADING: Severe RC and no CV?! -2
+     thread_to_join->join_ = calling_thread;
+     Scheduler::instance()->sleep();
+     thread_to_join->join_ = NULL;
+@@ -375,9 +381,11 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
+   current_process->retvals_lock_.acquire();
+   if(current_process->retvals_.find(thread) != current_process->retvals_.end()
+     && value_ptr != NULL)
++  /// TODO MULTITHREADING: Other -1 Pagefault with Kernel Lock -> Maybe remove from retvals_?
+     *value_ptr = current_process->retvals_.at(thread);
+   current_process->retvals_lock_.release();
+-  
++
++  /// TODO MULTITHREADING: NonStd -1 Returning 0 if thread to join is not found
+   return (size_t) 0;
+ }
+ 
+@@ -385,6 +393,7 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
+ size_t Syscall::cancelThread(size_t tid)
+ {
+   UserProcess* process = ((UserThread*)currentThread)->getProcess();
++  /// Mapping retval before thread is actually dead? What if thread calls pthread_exit(-1), it gets identified as cancelled?
+   ((UserThread*)currentThread)->getProcess()->mapRetVals(currentThread->getTID(), (void*) -1);
+   debug(SYSCALL, "Calling cancelUserThread on Thread: %ld\n", tid);
+   return process->cancelUserThread(tid);
+@@ -394,7 +403,7 @@ size_t Syscall::detachThread(size_t tid)
+ {
+   UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
+   UserThread* thread = (UserThread*)(current_process->getThread(tid));
+-
++  /// TODO MULTITHREADING: NonStd -1 Should return -1 if thread is not found, here we access a nullptr
+   return thread->setStateDetached();
+ }
+ 
+@@ -464,7 +473,8 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
+       pid_waits->list_lock_.release();
+       ProcessExitInfo pexit(pr_instance->getExitInfo(ret_pid, delete_entry));
+       pr_instance->pid_waits_lock_.release();
+-      
++
++      /// TODO EXEC: (Waitpid) Other -2 PF with kernel lock (Happens thrice in this function)
+       if(status != NULL)
+         *((int*)status) = (pexit.exit_val_&0xFF) + (1<<8);
+ 
+@@ -562,7 +572,6 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
+       return pid;
+     }
+   }
+-  
+   return -1;
+ }
+ 
+@@ -573,12 +582,15 @@ size_t Syscall::getpid()
+ 
+ size_t Syscall::setCancelState(size_t state, size_t oldstate)
+ {
++  /// TODO MULTITHREADING: Param -1 (As it happens below as well)
+   UserThread* thread = ((UserThread*)currentThread);
+   if(state != thread->PTHREAD_CANCEL_ENABLE && state != thread->PTHREAD_CANCEL_DISABLE) return -1;
+   if(oldstate != thread->cancelstate_ && oldstate != NULL) return -1;
++  /// TODO MULTITHREADING: NonStd -2 (As it happens below as well)
+   thread->cancelstate_ = state;
+   return 0;
+ }
++
+ size_t Syscall::setCancelType(size_t type, size_t oldtype)
+ {
+   UserThread* thread = ((UserThread*)currentThread);
+diff --git a/common/source/kernel/UserProcess.cpp b/common/source/kernel/UserProcess.cpp
+index f8540bc0..45b9a9e2 100644
+--- a/common/source/kernel/UserProcess.cpp
++++ b/common/source/kernel/UserProcess.cpp
+@@ -27,6 +27,8 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32
+ 
+   if (!loader_ || !loader_->loadExecutableAndInitProcess())
+   {
++    /// TODO MULTITHREADING: Other -1 Close fd? Delete Loader?
++    /// Check out createProcess in ProcRegistry -> We are accessing a dead process afterwards
+     debug(USERPROCESS, "Error: loading %s failed!\n", filename.c_str());
+     delete this;
+     return;
+@@ -46,6 +48,7 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval)
+          filename_(process.getFilename()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
+          terminal_number_(process.getTerminalNumber())//, parent_process_(&process), child_processes_()
+          , num_threads_(0), vpage_offset_(process.getVPageOffset())
++         /// TODO FORK: RC -0 getVPageOffset gets set to 0 with lock while calling exec but who cares
+ {
+   ProcessRegistry::instance()->processStart();
+ 
+@@ -58,9 +61,10 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval)
+   {
+     debug(USERPROCESS, "Error: loading %s failed!\n", filename_.c_str());
+     *retval = -1;
++    /// TODO FORK: delete loader -> MemLeak (No deduction)
+     return;
+   }
+-  cpu_start_rdtsc = ArchThreads::rdtsc();
++  cpu_start_rdtsc = 0;
+   //loader_ = new Loader(*process.getLoader(), fd_);
+ 
+   debug(USERPROCESS, "Loader copy done\n");
+@@ -106,6 +110,7 @@ void UserProcess::setPID(size_t pid){
+ 
+ Thread* UserProcess::getThread(size_t tid)
+ {
++  /// TODO MULTITHREADING: This is locked locally... RC -3
+   threads_lock_.acquire();
+   for (auto thread : threads_)
+   {
+@@ -223,7 +228,6 @@ uint64 UserProcess::copyPages()
+ void UserProcess::cancelNonCurrentThreads(Thread *thread)
+ {
+   assert(thread);
+-
+   threads_lock_.acquire();
+   for (auto it = threads_.begin(); it != threads_.end(); it++)
+   {
+@@ -236,7 +240,7 @@ void UserProcess::cancelNonCurrentThreads(Thread *thread)
+         Scheduler::instance()->yield();
+         threads_lock_.acquire();
+       }
+-      (*it)->kill();
++      (*it)->kill(); /// TODO MULTITHREADING: Severe RC -3
+       debug(USERPROCESS, "Removed TID %zu from Threadlist of PID %zu - %zu still assigned to the process\n", thread->getTID(), getPID(), getNumThreads());
+     }
+   }
+@@ -258,6 +262,7 @@ size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void*
+     num_threads_++;
+ 
+     Scheduler::instance()->addNewThread(thread);
++    /// TODO MULTITHREADING: Other -1 Dereferencing ptr with kernel lock
+     *tid = thread->getTID();
+     threads_lock_.release();
+     return 0;
+@@ -293,6 +298,7 @@ size_t UserProcess::cancelUserThread(size_t tid)
+       if(((UserThread*)it)->switch_to_userspace_ && (*it) != currentThread)
+       {
+           threads_lock_.release();
++        /// TODO MULTITHREADING: Severe RC -3
+         (*it)->kill();
+       }
+       else threads_lock_.release();
+@@ -312,13 +318,16 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
+   while(num_threads_ != 1)
+   {Scheduler::instance()->yield();}
+ 
++  /// TODO EXEC: Other -3 Cancelling all threads before doing param checks...
++  /// TODO EXEC: Params -2/-3 arg array can be a kernel pointer or contain a kernel pointer...
++
+   if ((unsigned long long)*path >= USER_BREAK)
+     {
+       return_val = -1;
+       return return_val;
+     }
+ 
+-  //TODO: Old fd deleting has to be handled  
++  //Old fd deleting has to be handled
+  
+   
+   int char_counter;
+@@ -383,7 +392,6 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
+ 
+   ArchThreads::printThreadRegisters(currentThread);
+ 
+-
+   char **argv = (char**)kmalloc(((size_t)chars_per_arg.size() + 1) * sizeof(char*));
+ 
+   int argv_size = 1;
+diff --git a/common/source/kernel/UserThread.cpp b/common/source/kernel/UserThread.cpp
+index 0e9306cf..efb97446 100644
+--- a/common/source/kernel/UserThread.cpp
++++ b/common/source/kernel/UserThread.cpp
+@@ -132,7 +132,6 @@ UserThread::UserThread(UserThread &thread, UserProcess *process) : Thread(proces
+     to_cancel_ = false;
+ 
+     stack_base_nr_ = thread.stack_base_nr_;
+-    is_joinable_ = thread.is_joinable_;
+     stack_page_ = USER_BREAK / PAGE_SIZE - stack_base_nr_ - 1;
+     
+     ArchThreads::createUserRegisters(user_registers_, loader_->getEntryFunction(),
+@@ -152,7 +151,8 @@ UserThread::~UserThread()
+     assert(Scheduler::instance()->isCurrentlyCleaningUp());
+ 
+     debug(USERTHREAD, "~UserThread - TID %zu\n", getTID());
+-    
++
++    /// TODO MULTITHREADING: Should be moved to pthread_exit... (No reduction)
+     if (process_->getLoader() != nullptr) //&& !first_thread_)
+     {
+         for (size_t page_offset : used_offsets_)
+diff --git a/common/source/mm/PageFaultHandler.cpp b/common/source/mm/PageFaultHandler.cpp
+index cb4a73a3..2d11abdd 100644
+--- a/common/source/mm/PageFaultHandler.cpp
++++ b/common/source/mm/PageFaultHandler.cpp
+@@ -39,6 +39,7 @@ inline bool PageFaultHandler::checkPageFaultIsValid(size_t address, bool user,
+     {
+       debug(COW, "Copy Page / Set writeable\n");
+       currentThread->handled_cow = true;
++      /// TODO FORK: RC -2 Leads to KP with multithreaded fork (assert hits), two map the same page
+       ArchMemory::copyPage(currentThread->loader_->arch_memory_, address);
+       return true;
+     }
+@@ -96,6 +97,7 @@ inline void PageFaultHandler::handlePageFault(size_t address, bool user,
+               debug(PAGEFAULT, "ERROR: Upper guard page!\n");
+               Syscall::exit(9998);
+           }
++          /// TODO MULTITHREADING: Growing stacks - Can't map stack of other thread -1 topic
+           else if(page_offset > thread->getStackBase() &&  page_offset <= (thread->getStackBase() + MAX_STACK_PAGES))
+           {
+               debug(PAGEFAULT, "STACK: Add new page: %zd\n", page_offset);
+diff --git a/userspace/tests/exec.c b/userspace/tests/exec.c
+index ef11e135..8aa8ae41 100644
+--- a/userspace/tests/exec.c
++++ b/userspace/tests/exec.c
+@@ -7,7 +7,7 @@ int main()
+     //int var = 0;
+     //(void)var;
+     pid_t Pid = fork();
+-    
++
+     //execDone = 1;
+     if(Pid != 0)
+     {
+@@ -17,7 +17,7 @@ int main()
+         //execDone = execv("/usr/mult.sweb",NULL);
+         //while(execDone == 1);
+         printf("exec done \n");
+-     
++
+     }
+     else
+     {
+@@ -31,7 +31,7 @@ int main()
+     {
+         var++;
+     }
+-    
++
+     while (1)
+     {
+     }*/
+diff --git a/userspace/tests/execf.c b/userspace/tests/execf.c
+index 8cfccb86..3bd30fdc 100644
+--- a/userspace/tests/execf.c
++++ b/userspace/tests/execf.c
+@@ -5,7 +5,7 @@
+ 
+ int main(int argc, char* argv[])
+ {
+-    char *args[] = {"1","2","3","4"};
++    char *args[] = {"1", "2", "3", "4"};
+ 
+     printf("%s\n", args[1]);
+     printf("%s\n", args[2]);
+@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
+     //printf("%d\n", atoi(args[1]));
+     //printf("%d\n", atoi(args[2]));
+     int f = fork();
+-    
++
+     if(f != 0)
+     {
+         printf("exec addarg.sweb\n");
+diff --git a/userspace/tests/fork.c b/userspace/tests/fork.c
+index 54878380..ec85dfc9 100644
+--- a/userspace/tests/fork.c
++++ b/userspace/tests/fork.c
+@@ -3,27 +3,27 @@
+ 
+ int main()
+ {
+-    int var = 1;
++  int var = 1;
+ 
+-    for (size_t i = 0; i < 50; i++)
++  for (size_t i = 0; i < 50; i++)
++  {
++    if (var != 0)
+     {
+-        if (var != 0)
+-        {
+-            var = fork();
+-            if (var != 0)
+-            {
+-                printf("var: %d\n", var);
+-            }
+-            else
+-            {
+-                break;
+-            }
+-        }
+-
++      var = fork();
++      if (var != 0)
++      {
++        printf("var: %d\n", var);
++      }
++      else
++      {
++        break;
++      }
+     }
+-    
+-    
+-    
+ 
+-    return 0;
++  }
++
++
++
++
++  return 0;
+ }
+diff --git a/userspace/tests/pthreadcreate.c b/userspace/tests/pthreadcreate.c
+index 947334c6..f000a3c9 100644
+--- a/userspace/tests/pthreadcreate.c
++++ b/userspace/tests/pthreadcreate.c
+@@ -1,6 +1,6 @@
+ #include "pthread.h"
+ #include "stdio.h"
+-
++#include "assert.h"
+ void* function_print()
+ {
+     printf("Hello!");
+@@ -12,7 +12,7 @@ int main()
+ {
+     pthread_t thread[4];
+     for(int i = 0; i < 4; i++) {
+-        pthread_create(&(thread[i]), 0x0, &function_print, 0x0);
++        pthread_create(&thread[i], 0x0, &function_print, 0x0);
+         printf("%ld", thread[i]);
+     }
+     sleep(2);

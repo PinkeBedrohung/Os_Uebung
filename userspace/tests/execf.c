@@ -5,7 +5,7 @@
 
 int main(int argc, char* argv[])
 {
-    char *args[] = {"1","2","3","4"};
+    char *args[] = {"1", "2", "3", "4"};
 
     printf("%s\n", args[1]);
     printf("%s\n", args[2]);
@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
     //printf("%d\n", atoi(args[1]));
     //printf("%d\n", atoi(args[2]));
     int f = fork();
-    
+
     if(f != 0)
     {
         printf("exec addarg.sweb\n");
