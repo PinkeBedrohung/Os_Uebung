@@ -28,7 +28,7 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
   if (!loader_ || !loader_->loadExecutableAndInitProcess())
   {
     /// TODO MULTITHREADING: Other -1 Close fd? Delete Loader?
-+    /// Check out createProcess in ProcRegistry -> We are accessing a dead process afterwards
+   /// Check out createProcess in ProcRegistry -> We are accessing a dead process afterwards
     debug(USERPROCESS, "Error: loading %s failed!\n", filename.c_str());
     delete this;
     return;
@@ -291,7 +291,7 @@ size_t UserProcess::cancelUserThread(size_t tid)
           threads_lock_.release();
           ((UserThread*)(*it))->cleanupThread(-1);
           (*it)->kill();
-+        /// TODO MULTITHREADING: Severe RC -3
+        /// TODO MULTITHREADING: Severe RC -3
         }
       }
       else
