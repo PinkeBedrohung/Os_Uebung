@@ -24,7 +24,7 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
   ProcessRegistry::instance()->processStart(); //should also be called if you fork a process
    if (fd_ >= 0)
         loader_ = new Loader(fd_);
-
+  cpu_start_rdtsc = 0;
   if (!loader_ || !loader_->loadExecutableAndInitProcess())
   {
     debug(USERPROCESS, "Error: loading %s failed!\n", filename.c_str());
@@ -60,7 +60,7 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
     *retval = -1;
     return;
   }
-  cpu_start_rdtsc = ArchThreads::rdtsc();
+  cpu_start_rdtsc = 0;
   //loader_ = new Loader(*process.getLoader(), fd_);
 
   debug(USERPROCESS, "Loader copy done\n");

@@ -60,8 +60,9 @@ public:
     bool is_killed_;
   
     size_t canceltype_ = PTHREAD_CANCEL_DEFERRED;
+    size_t oldcanceltype_ = NULL;
     size_t cancelstate_ = PTHREAD_CANCEL_ENABLE;
-
+    size_t oldcancelstate = NULL;
     ustl::list<size_t> getUsedOffsets();
 
     void cleanupThread(size_t retval);

@@ -25,6 +25,10 @@ int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
   return -1;
 }
 
+pthread_t pthread_self(void)
+{
+  return __syscall(sc_pthreadself, 0x0, 0x0, 0x0, 0x0, 0x0);
+}
 /**
  * function stub
  * posix compatible signature - do not change the signature!

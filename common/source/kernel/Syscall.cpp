@@ -73,6 +73,9 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     case sc_pthread_detach:
       return_value = detachThread(arg1);
       break;
+    case sc_pthreadself:
+      return_value = currentThread->getTID();
+      break;
     case sc_clock:
       return_value = clock();
       break;
@@ -603,11 +606,11 @@ size_t Syscall::setCancelState(size_t state, size_t oldstate)
   UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
 
   if(state != thread->PTHREAD_CANCEL_ENABLE && state != thread->PTHREAD_CANCEL_DISABLE) return -1;
-  if(oldstate != thread->cancelstate_ && oldstate != NULL) return -1;
+  if( oldstate >= USER_BREAK) return -1;
 
   current_process->threads_lock_.acquire();
   thread->cancelstate_ = state;
-  
+  thread->oldcancelstate = oldstate;
   current_process->threads_lock_.release();
 
   return 0;
@@ -619,11 +622,12 @@ size_t Syscall::setCancelType(size_t type, size_t oldtype)
 
   if(type != thread->PTHREAD_CANCEL_ASYNCHRONOUS && type != thread->PTHREAD_CANCEL_DEFERRED)
     return -1;
-  if(oldtype != thread->canceltype_ && oldtype != NULL)
+  if(oldtype >= USER_BREAK)
     return -1;
 
   current_process->threads_lock_.acquire();
   thread->canceltype_ = type;
+  thread->oldcanceltype_ = oldtype;
   current_process->threads_lock_.release();
   return 0;
 }
