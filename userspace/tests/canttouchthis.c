@@ -28,7 +28,7 @@ int main()
       printf("CAN'T TOUCH THIS\n");
       pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
     }
-    
+    if(i == 500) break;
     printf("MAIN\n");
     //i++;
 

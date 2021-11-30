@@ -29,7 +29,7 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
   {
     /// TODO MULTITHREADING: Other -1 Close fd? Delete Loader?
    /// Check out createProcess in ProcRegistry -> We are accessing a dead process afterwards
-    debug(USERPROCESS, "Error: loading %s failed!\n", filename.c_str());
+    //debug(USERPROCESS, "Error: loading %s failed!\n", filename.c_str());
     delete this;
     return;
   }
