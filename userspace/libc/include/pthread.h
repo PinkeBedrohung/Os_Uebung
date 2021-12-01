@@ -53,6 +53,8 @@ extern int pthread_join(pthread_t thread, void **value_ptr);
 
 extern int pthread_detach(pthread_t thread);
 
+extern int pthread_self(void);
+
 extern int pthread_mutex_init(pthread_mutex_t *mutex,
                               const pthread_mutexattr_t *attr);
 

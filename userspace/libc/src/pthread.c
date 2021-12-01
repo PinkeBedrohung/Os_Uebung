@@ -57,7 +57,6 @@ int pthread_join(pthread_t thread, void **value_ptr)
   return (int)__syscall(sc_pthread_join, (size_t) thread, (size_t) value_ptr, 0x0, 0x0, 0x0);
 }
 
-  
 
 /**
  * function stub
@@ -66,6 +65,12 @@ int pthread_join(pthread_t thread, void **value_ptr)
 int pthread_detach(pthread_t thread)
 {
   return (int)__syscall(sc_pthread_detach, (size_t) thread, 0x0, 0x0, 0x0, 0x0);
+}
+
+// return the tid of the current thread aka the one calling the function
+int pthread_self()
+{
+  return (int)__syscall(sc_pthread_self, 0x0, 0x0, 0x0, 0x0, 0x0);
 }
 
 /**

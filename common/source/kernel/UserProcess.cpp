@@ -253,11 +253,12 @@ size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void*
   {  
     threads_.push_back(thread);
     num_threads_++;
+    threads_lock_.release();
 
     Scheduler::instance()->addNewThread(thread);
     /// TODO MULTITHREADING: Other -1 Dereferencing ptr with kernel lock
+
     *tid = thread->getTID();
-    threads_lock_.release();
     return 0;
   }
   else

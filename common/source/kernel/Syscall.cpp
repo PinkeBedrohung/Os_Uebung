@@ -76,8 +76,8 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     case sc_pthread_detach:
       return_value = detachThread(arg1);
       break;
-    case sc_pthreadself:
-      return_value = currentThread->getTID();
+    case sc_pthread_self:
+      return_value = (int) currentThread->getTID();
       break;
     case sc_clock:
       return_value = clock();
@@ -120,11 +120,11 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
 
 void Syscall::exit(size_t exit_code)
 {
-  debug(SYSCALL, "Syscall::EXIT: called, exit_code: %zd\n", exit_code);
-  
   UserThread *currentUserThread = (UserThread *)currentThread;
   UserProcess *process = currentUserThread->getProcess();  
 
+  debug(SYSCALL, "Syscall::EXIT: called, exit_code: %zd, TID: %zd, PID: %zd\n", exit_code, currentThread->getTID(), currentUserThread->getProcess()->getPID());
+  
   ProcessRegistry::instance()->lockLists();
   ProcessExitInfo pexit_info(exit_code, currentUserThread->getProcess()->getPID());
   ProcessRegistry::instance()->makeZombiePID(pexit_info.pid_);
@@ -384,18 +384,24 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
     thread_to_join->join_ = NULL;
     current_process->threads_lock_.release();
   }
+  else 
+    current_process->threads_lock_.release();
+
   
   if (value_ptr != NULL)
   {
+    void* val;
     current_process->threads_lock_.acquire();
     if(current_process->retvals_.find(thread) != current_process->retvals_.end())
-      *value_ptr = current_process->retvals_.at(thread);
+      val = current_process->retvals_.at(thread);
     else
     {
       current_process->threads_lock_.release();
       return (size_t) -1;
     }
     current_process->threads_lock_.release();
+
+    *value_ptr = val;
   }
     
   return (size_t) 0;
