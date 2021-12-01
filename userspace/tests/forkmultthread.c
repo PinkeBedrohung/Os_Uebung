@@ -9,12 +9,12 @@ void thread_function(int* growing_stack)
     {
     }
     
-    growing_stack[1024 * 5] = 123;
+    growing_stack[1024 * (1 + pthread_self() % 19)] = 123;
 }
 
 int main()
 {
-    pthread_t thread[4];
+    pthread_t thread[10];
     int growing_stack[1024 * 20];
     for(int counter = 0; counter < (1024 * 20); counter++)
     {
@@ -41,8 +41,7 @@ int main()
         }
         else
         {
-            val++;
-            // pthread_create(&(thread[0]), 0x0, (void*(*)())&thread_function, 0x0);
+            break;
         }
     }
 

@@ -1,7 +1,7 @@
 #include "PidWaits.h"
 #include "ArchThreads.h"
 
-PidWaits::PidWaits(size_t pid) : list_lock_("PidWaits::list_lock_"), pid_to_wait_for_(pid), cond_lock_("PidWaits::cond_lock_"), pid_ready_cond_(&cond_lock_,"pid_ready_cond_")
+PidWaits::PidWaits(size_t pid) : list_lock_("PidWaits::list_lock_"), pid_to_wait_for_(pid), cond_lock_("PidWaits::cond_lock_"), pid_ready_cond_(&cond_lock_,"pid_ready_cond_"), pid_ready_(false)
 {
 }
 
@@ -38,6 +38,7 @@ void PidWaits::signalReady()
 {
     MutexLock lock(list_lock_);
     cond_lock_.acquire();
+    pid_ready_ = true;
     pid_ready_cond_.broadcast();
     cond_lock_.release();
 }
@@ -46,8 +47,11 @@ void PidWaits::waitUntilReady(size_t pid, size_t tid)
 {
     addPtid(pid, tid);
     cond_lock_.acquire();
-    /// TODO EXEC: (Waitpid) RC -2 Incorrect CV use / What if signal comes in this line? -> Deadlock
-    pid_ready_cond_.waitAndRelease();
+    while(!pid_ready_)
+    {
+        pid_ready_cond_.wait();
+    }
+    cond_lock_.release();
 }
 
 size_t PidWaits::getPid()

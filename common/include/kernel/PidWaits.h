@@ -32,5 +32,6 @@ private:
     size_t pid_to_wait_for_;
     Mutex cond_lock_;
     Condition pid_ready_cond_;
+    bool pid_ready_;
     ustl::list<ptid> ptids_;
 };

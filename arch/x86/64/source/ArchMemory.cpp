@@ -589,7 +589,7 @@ void ArchMemory::copyPage(ArchMemory &archmemory, uint64 address)
               pt = (PageTableEntry *)getIdentAddressOfPPN(pd[pdi].pt.page_ppn);
               for (size_t pti = 0; pti < PAGE_TABLE_ENTRIES; pti++)
               {
-                if(pt[pti].present && pt[pti].page_ppn == page_ppn)
+                if(pt[pti].present && pt[pti].page_ppn == page_ppn && pt[pti].writeable == 0)
                 {
                   pageInfo[pt[pti].page_ppn].lockRefCount();
                   assert(pageInfo[pt[pti].page_ppn].getRefCount() != 0);
@@ -614,6 +614,10 @@ void ArchMemory::copyPage(ArchMemory &archmemory, uint64 address)
                     pageInfo[pt[pti].page_ppn].unlockRefCount();
                   }
                   pt[pti].writeable = 1;
+                  return;
+                }
+                else if(pt[pti].present && pt[pti].page_ppn == page_ppn && pt[pti].writeable == 1)
+                {
                   return;
                 }
               }

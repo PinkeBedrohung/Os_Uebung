@@ -17,7 +17,7 @@ void entry_function(void* (*start_routine)(void*), void* arg)
     pthread_exit(start_routine(arg));
 }
 
-
+// return the tid of the current thread aka the one calling the function
 pthread_t pthread_self(void)
 {
   return __syscall(sc_pthreadself, 0x0, 0x0, 0x0, 0x0, 0x0);
@@ -65,12 +65,6 @@ int pthread_join(pthread_t thread, void **value_ptr)
 int pthread_detach(pthread_t thread)
 {
   return (int)__syscall(sc_pthread_detach, (size_t) thread, 0x0, 0x0, 0x0, 0x0);
-}
-
-// return the tid of the current thread aka the one calling the function
-int pthread_self()
-{
-  return (int)__syscall(sc_pthread_self, 0x0, 0x0, 0x0, 0x0, 0x0);
 }
 
 /**

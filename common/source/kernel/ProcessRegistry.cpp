@@ -388,7 +388,6 @@ bool ProcessRegistry::checkPidWaitsHasDeadlock(size_t curr_pid, size_t pid_to_wa
         }
       }
       pid_waits->list_lock_.release();
-      
     }
   }
 

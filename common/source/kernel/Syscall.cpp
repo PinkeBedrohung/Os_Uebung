@@ -77,7 +77,7 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
       return_value = detachThread(arg1);
       break;
     case sc_pthread_self:
-      return_value = (int) currentThread->getTID();
+      return_value = currentThread->getTID();
       break;
     case sc_clock:
       return_value = clock();
@@ -125,6 +125,7 @@ void Syscall::exit(size_t exit_code)
 
   debug(SYSCALL, "Syscall::EXIT: called, exit_code: %zd, TID: %zd, PID: %zd\n", exit_code, currentThread->getTID(), currentUserThread->getProcess()->getPID());
   
+  // This part probably also has to be implemented with pthread_exit when the last thread is being destroyed
   ProcessRegistry::instance()->lockLists();
   ProcessExitInfo pexit_info(exit_code, currentUserThread->getProcess()->getPID());
   ProcessRegistry::instance()->makeZombiePID(pexit_info.pid_);
@@ -506,12 +507,12 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
       ProcessExitInfo pexit(pr_instance->getExitInfo(ret_pid, delete_entry));
       pr_instance->pid_waits_lock_.release();
 
-      /// TODO EXEC: (Waitpid) Other -2 PF with kernel lock (Happens thrice in this function)
+      debug(WAIT_PID, "Thread:%ld found terminated Process PID: %ld with -1\n", curr_tid, pexit.pid_);
+      pr_instance->unlockLists();
+
       if(status != NULL)
         *((int*)status) = (pexit.exit_val_&0xFF) + (1<<8);
 
-      debug(WAIT_PID, "Thread:%ld found terminated Process PID: %ld with -1\n", curr_tid, pexit.pid_);
-      pr_instance->unlockLists();
       return pexit.pid_;
     }
 
@@ -551,11 +552,12 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
       ProcessExitInfo pexit(pr_instance->getExitInfo(pid, delete_entry));
       pr_instance->pid_waits_lock_.release();
 
+      debug(WAIT_PID, "Thread:%ld found terminated Process PID: %ld\n", curr_tid, pid);
+      pr_instance->unlockLists();
+
       if(status != NULL)
         *((int*)status) = (pexit.exit_val_&0xFF) + (1<<8);
 
-      debug(WAIT_PID, "Thread:%ld found terminated Process PID: %ld\n", curr_tid, pid);
-      pr_instance->unlockLists();
       return pexit.pid_;
     }
 
@@ -596,11 +598,12 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
       
       ProcessExitInfo pexit(pr_instance->getExitInfo(check_pid, false));//delete_entry));
       
-      if(status != NULL)
-        *((int*)status) = (pexit.exit_val_&0xFF) + (1<<8);
-      
       pr_instance->pid_waits_lock_.release();
       pr_instance->unlockLists();
+
+      if(status != NULL)
+        *((int*)status) = (pexit.exit_val_&0xFF) + (1<<8);
+
       return pid;
     }
   }
