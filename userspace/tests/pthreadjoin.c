@@ -5,6 +5,7 @@
 void* function_joiner()
 {
     printf("I am the joining thread and I can be joined now!\n");
+    sleep(2);
     return (void*) 2;
 }
 
@@ -20,10 +21,9 @@ int main()
     pthread_create(&joiner, NULL, function_joiner, NULL);
 
     int retval_main = function_caller();
-    
     pthread_join(joiner, (void*)&retval_main);
     printf("Join has been called!\n");
-    sleep(2);
+    
 
     if(retval_main != 2)
         printf("Sorry, but join didn't work.\n");

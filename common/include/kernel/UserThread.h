@@ -27,17 +27,11 @@ public:
     };
     enum
     {
-        PTHREAD_CANCEL_ENABLE,
-        #define PTHREAD_CANCEL_ENABLE   PTHREAD_CANCEL_ENABLE
-        PTHREAD_CANCEL_DISABLE
-        #define PTHREAD_CANCEL_DISABLE  PTHREAD_CANCEL_DISABLE
+        PTHREAD_CANCEL_ENABLE, PTHREAD_CANCEL_DISABLE
     };
     enum
     {
-        PTHREAD_CANCEL_DEFERRED,
-        #define PTHREAD_CANCEL_DEFERRED	PTHREAD_CANCEL_DEFERRED
-        PTHREAD_CANCEL_ASYNCHRONOUS
-        #define PTHREAD_CANCEL_ASYNCHRONOUS	PTHREAD_CANCEL_ASYNCHRONOUS
+        PTHREAD_CANCEL_DEFERRED,PTHREAD_CANCEL_ASYNCHRONOUS
     };
     UserThread(UserProcess *process);
     UserThread(UserThread &thread, UserProcess* process = NULL);
@@ -47,8 +41,6 @@ public:
     UserProcess *getProcess();
     void copyRegisters(UserThread *thread);
 
-
-    bool checkIfLastThread();
     size_t getStackBase();
     size_t getStackPage();
     size_t getNumPages();
@@ -65,9 +57,15 @@ public:
     size_t retval_;
     int is_joinable_;
 
+    bool is_killed_;
   
     size_t canceltype_ = PTHREAD_CANCEL_DEFERRED;
+    size_t oldcanceltype_ = NULL;
     size_t cancelstate_ = PTHREAD_CANCEL_ENABLE;
+    size_t oldcancelstate = NULL;
+    ustl::list<size_t> getUsedOffsets();
+
+    void cleanupThread(size_t retval);
 private:
     void createThread(void* entry_function);
     size_t stack_base_nr_;

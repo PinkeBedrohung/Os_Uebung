@@ -17,10 +17,11 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
 {
   size_t return_value = 0;
   debug(SYSCALL, "CurrentThread %ld to_cancel_: %d\n",((UserThread*)currentThread)->getTID(), (int)((UserThread*)currentThread)->to_cancel_);
-  /// TODO MULTITHREADING: RC -1
+   /// TODO MULTITHREADING: RC -1
   if(((UserThread*)currentThread)->to_cancel_)
   {
     /// TODO MULTITHREADING: This does not save retval?
+    ((UserThread*)currentThread)->cleanupThread(-1);
     currentThread->kill();
     return 0;
   }
@@ -75,6 +76,9 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     case sc_pthread_detach:
       return_value = detachThread(arg1);
       break;
+    case sc_pthreadself:
+      return_value = currentThread->getTID();
+      break;
     case sc_clock:
       return_value = clock();
       break;
@@ -107,6 +111,7 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
   }
   if(((UserThread*)currentThread)->to_cancel_)
   {
+    ((UserThread*)currentThread)->cleanupThread(-1);
     currentThread->kill();
     return 0;
   }
@@ -118,6 +123,7 @@ void Syscall::exit(size_t exit_code)
   debug(SYSCALL, "Syscall::EXIT: called, exit_code: %zd\n", exit_code);
   
   UserThread *currentUserThread = (UserThread *)currentThread;
+  UserProcess *process = currentUserThread->getProcess();  
 
   ProcessRegistry::instance()->lockLists();
   ProcessExitInfo pexit_info(exit_code, currentUserThread->getProcess()->getPID());
@@ -127,9 +133,9 @@ void Syscall::exit(size_t exit_code)
   ProcessRegistry::instance()->unlockLists();
   debug(WAIT_PID, "Process exited - Exit_val: %ld, PID: %ld\n", pexit_info.exit_val_, pexit_info.pid_);
 
-  UserProcess* current_process = currentUserThread->getProcess(); 
-  current_process->cancelNonCurrentThreads(currentThread);
-  currentThread->kill();
+  process->cancelNonCurrentThreads();
+  currentUserThread->cleanupThread(exit_code);
+  currentThread->kill();  
 }
 
 size_t Syscall::write(size_t fd, pointer buffer, size_t size)
@@ -276,10 +282,8 @@ size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, s
 
 void Syscall::exitThread(size_t retval)
 {
-  //SOLVED: when a thread is cancelled, store -1 in retval so join can also return -1 as PTHREAD_CANCELED
-  //((UserThread*)currentThread)->retval_ = retval;
-  ((UserThread*)currentThread)->getProcess()->mapRetVals(currentThread->getTID(), (void*) retval);
-
+  UserThread *thread = (UserThread *)currentThread;
+  thread->cleanupThread(retval);
   currentThread->kill();
 }
 
@@ -341,51 +345,59 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
     return (size_t) -1U;
   }
 
-
   if(thread == calling_thread->getTID())
   {
     //debug(SYSCALL, "Thread is calling join on itselt")
     return (size_t) -1U;
   }
 
-   // TODO MULTITHREADING: RC -1
-  if(thread_to_join != NULL && !thread_to_join->isStateJoinable())
+  if(thread_to_join == NULL)
   {
     return (size_t) -1U;
   }
 
-
-  
-  if(thread_to_join != NULL)
+  if(calling_thread->chainJoin(thread_to_join->getTID()))
   {
-    if(calling_thread->chainJoin(thread_to_join->getTID()))
-    {
-      return (size_t) -1U;
-    }
-
-    /// TODO MULTITHREADING: RC -1
-    if (thread_to_join->join_ != NULL)
-    {
-      return (size_t) -1U;
-    }
-
-    //current_process->threads_lock_.acquire();
-    /// TODO MULTITHREADING: Severe RC and no CV?! -2
-    thread_to_join->join_ = calling_thread;
-    Scheduler::instance()->sleep();
-    thread_to_join->join_ = NULL;
+    return (size_t) -1U;
   }
-  //else 
-    //current_process->retvals_lock_.release();
 
-  current_process->retvals_lock_.acquire();
-  if(current_process->retvals_.find(thread) != current_process->retvals_.end()
-    && value_ptr != NULL)
-  /// TODO MULTITHREADING: Other -1 Pagefault with Kernel Lock -> Maybe remove from retvals_?
-    *value_ptr = current_process->retvals_.at(thread);
-  current_process->retvals_lock_.release();
+  current_process->threads_lock_.acquire();
+  if(!thread_to_join->isStateJoinable())
+  {
+    current_process->threads_lock_.release();
+    return (size_t) -1U;
+  }
 
-  /// TODO MULTITHREADING: NonStd -1 Returning 0 if thread to join is not found
+  if (thread_to_join->join_ != NULL)
+  {
+    current_process->threads_lock_.release();
+    return (size_t) -1U;
+  } 
+
+  if(current_process->retvals_.find(thread) == current_process->retvals_.end())
+  {
+    thread_to_join->join_ = calling_thread;
+    current_process->alive_lock_.acquire();
+    current_process->threads_lock_.release();
+    calling_thread->alive_cond_.waitAndRelease();    
+    current_process->threads_lock_.acquire();
+    thread_to_join->join_ = NULL;
+    current_process->threads_lock_.release();
+  }
+  
+  if (value_ptr != NULL)
+  {
+    current_process->threads_lock_.acquire();
+    if(current_process->retvals_.find(thread) != current_process->retvals_.end())
+      *value_ptr = current_process->retvals_.at(thread);
+    else
+    {
+      current_process->threads_lock_.release();
+      return (size_t) -1;
+    }
+    current_process->threads_lock_.release();
+  }
+    
   return (size_t) 0;
 }
 
@@ -393,8 +405,13 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
 size_t Syscall::cancelThread(size_t tid)
 {
   UserProcess* process = ((UserThread*)currentThread)->getProcess();
-  /// Mapping retval before thread is actually dead? What if thread calls pthread_exit(-1), it gets identified as cancelled?
-  ((UserThread*)currentThread)->getProcess()->mapRetVals(currentThread->getTID(), (void*) -1);
+  UserThread* thread = (UserThread*)(process->getThread(tid));
+/// Mapping retval before thread is actually dead? What if thread calls pthread_exit(-1), it gets identified as cancelled?
+  if (thread == NULL)
+  {
+    return (size_t) -1U;
+  }
+  /// TODO MULTITHREADING: NonStd -1 Should return -1 if thread is not found, here we access a nullptr
   debug(SYSCALL, "Calling cancelUserThread on Thread: %ld\n", tid);
   return process->cancelUserThread(tid);
 }
@@ -403,8 +420,17 @@ size_t Syscall::detachThread(size_t tid)
 {
   UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
   UserThread* thread = (UserThread*)(current_process->getThread(tid));
-  /// TODO MULTITHREADING: NonStd -1 Should return -1 if thread is not found, here we access a nullptr
-  return thread->setStateDetached();
+
+  if (thread == NULL)
+  {
+    return (size_t) -1U;
+  }
+
+  current_process->threads_lock_.acquire();
+  size_t retval = thread->setStateDetached();
+  current_process->threads_lock_.release();
+
+  return retval;
 }
 
 size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
@@ -584,20 +610,32 @@ size_t Syscall::setCancelState(size_t state, size_t oldstate)
 {
   /// TODO MULTITHREADING: Param -1 (As it happens below as well)
   UserThread* thread = ((UserThread*)currentThread);
+  UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
+
   if(state != thread->PTHREAD_CANCEL_ENABLE && state != thread->PTHREAD_CANCEL_DISABLE) return -1;
-  if(oldstate != thread->cancelstate_ && oldstate != NULL) return -1;
-  /// TODO MULTITHREADING: NonStd -2 (As it happens below as well)
+  if(state >= USER_BREAK || oldstate >= USER_BREAK) return -1;
+
+  current_process->threads_lock_.acquire();
   thread->cancelstate_ = state;
+  thread->oldcancelstate = oldstate;
+  current_process->threads_lock_.release();
+
   return 0;
 }
 
 size_t Syscall::setCancelType(size_t type, size_t oldtype)
 {
   UserThread* thread = ((UserThread*)currentThread);
+  UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
+
   if(type != thread->PTHREAD_CANCEL_ASYNCHRONOUS && type != thread->PTHREAD_CANCEL_DEFERRED)
     return -1;
-  if(oldtype != thread->canceltype_ && oldtype != NULL)
+  if(type >= USER_BREAK || oldtype >= USER_BREAK)
     return -1;
+
+  current_process->threads_lock_.acquire();
   thread->canceltype_ = type;
+  thread->oldcanceltype_ = oldtype;
+  current_process->threads_lock_.release();
   return 0;
 }

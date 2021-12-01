@@ -24,12 +24,12 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
   ProcessRegistry::instance()->processStart(); //should also be called if you fork a process
    if (fd_ >= 0)
         loader_ = new Loader(fd_);
-
+  cpu_start_rdtsc = 0;
   if (!loader_ || !loader_->loadExecutableAndInitProcess())
   {
     /// TODO MULTITHREADING: Other -1 Close fd? Delete Loader?
-    /// Check out createProcess in ProcRegistry -> We are accessing a dead process afterwards
-    debug(USERPROCESS, "Error: loading %s failed!\n", filename.c_str());
+   /// Check out createProcess in ProcRegistry -> We are accessing a dead process afterwards
+    //debug(USERPROCESS, "Error: loading %s failed!\n", filename.c_str());
     delete this;
     return;
   }
@@ -84,6 +84,10 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
 
 UserProcess::~UserProcess()
 {
+  available_offsets_.clear();
+  child_processes_.clear();
+  retvals_.clear();
+
   debug(USERPROCESS, "~UserProcess - PID %zu\n", getPID());
   
   delete loader_;
@@ -152,20 +156,15 @@ int32 UserProcess::getFd(){
 void UserProcess::addThread(Thread *thread){
   assert(thread);
   
-  threads_lock_.acquire();
   threads_.push_back(thread);
   num_threads_++;
-  threads_lock_.release();
 
   //debug(USERPROCESS, "Added thread with TID %zu to process with PID %zu\n", thread->getTID(), getPID());
 }
 
-void UserProcess::removeThread(Thread *thread){
+void UserProcess::removeThread(Thread *thread)
+{
   assert(thread);
-
-  UserThread* user_thread = (UserThread*) thread;
-
-  threads_lock_.acquire();
   for (auto it = threads_.begin(); it != threads_.end(); it++)
   {
     if ((*it)->getTID() == thread->getTID())
@@ -175,12 +174,6 @@ void UserProcess::removeThread(Thread *thread){
       debug(USERPROCESS, "Removed TID %zu from Threadlist of PID %zu - %zu still assigned to the process\n", thread->getTID(), getPID(), getNumThreads());
       break;
     }
-  }
-  threads_lock_.release();
-
-  if (user_thread->join_ != NULL)
-  {
-    Scheduler::instance()->wake((Thread*) (user_thread->join_));
   }
 }
 
@@ -225,23 +218,23 @@ uint64 UserProcess::copyPages()
   return 0;
 }
 
-void UserProcess::cancelNonCurrentThreads(Thread *thread)
+void UserProcess::cancelNonCurrentThreads()
 {
-  assert(thread);
   threads_lock_.acquire();
   for (auto it = threads_.begin(); it != threads_.end(); it++)
   {
      //debug(USERPROCESS, "You came to the wrong house fool \n");
-    if ((*it)->getTID() != thread->getTID())
+    if ((*it)->getTID() != currentThread->getTID())
     {
-      while((*it)->holding_lock_list_ != 0)
+      if ((*it)->schedulable())
       {
+        (*it)->setState(Cancelled);
         threads_lock_.release();
-        Scheduler::instance()->yield();
+        ((UserThread*)(*it))->cleanupThread(-1);
         threads_lock_.acquire();
+        (*it)->kill();/// TODO MULTITHREADING: Severe RC -3
+        debug(USERPROCESS, "Removed TID %zu from Threadlist of PID %zu - %zu still assigned to the process\n", currentThread->getTID(), getPID(), getNumThreads());
       }
-      (*it)->kill(); /// TODO MULTITHREADING: Severe RC -3
-      debug(USERPROCESS, "Removed TID %zu from Threadlist of PID %zu - %zu still assigned to the process\n", thread->getTID(), getPID(), getNumThreads());
     }
   }
   threads_lock_.release();
@@ -277,9 +270,7 @@ size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void*
 
 void UserProcess::mapRetVals(size_t tid, void* retval)
 {
-  retvals_lock_.acquire();
   retvals_.insert(ustl::make_pair(tid, retval));
-  retvals_lock_.release();
 }
 
 size_t UserProcess::cancelUserThread(size_t tid)
@@ -287,33 +278,41 @@ size_t UserProcess::cancelUserThread(size_t tid)
   threads_lock_.acquire();
   for (auto it = threads_.begin(); it != threads_.end(); it++)
   {
-    if ((*it)->getTID() == tid)
+    if ((*it)->getTID() == tid && ((UserThread*)*it)->cancelstate_ == 0)
     {
       debug(USERTHREAD, "Canceling thread: %ld\n",(*it)->getTID());
       
-      ((UserThread*)it)->to_cancel_ = true;
-      debug(USERTHREAD, "to_cancel_ set to: %d\n", (int)((UserThread*)it)->to_cancel_);
-
-      debug(USERTHREAD, "switch_to_usersp: %d, is_currentthread: %d \n", ((UserThread*)it)->switch_to_userspace_, (int)((*it)==currentThread));
-      if(((UserThread*)it)->switch_to_userspace_ && (*it) != currentThread)
+      debug(USERTHREAD, "switch_to_usersp: %d, is_currentthread: %d \n", ((UserThread*)(*it))->switch_to_userspace_, (int)((*it)==currentThread));
+      debug(USERTHREAD, "Cancelation state: %ld", (((UserThread*)*it)->cancelstate_));
+      if(((UserThread*)(*it))->switch_to_userspace_ && (*it) != currentThread )
       {
+        if ((*it)->schedulable())
+        {
+          (*it)->setState(Cancelled);
           threads_lock_.release();
+          ((UserThread*)(*it))->cleanupThread(-1);
+          (*it)->kill();
         /// TODO MULTITHREADING: Severe RC -3
-        (*it)->kill();
+        }
       }
-      else threads_lock_.release();
+      else
+      {
+        ((UserThread*)(*it))->to_cancel_ = true;
+        debug(USERTHREAD, "to_cancel_ set to: %d\n", (int)((UserThread*)(*it))->to_cancel_);
+        threads_lock_.release();
+      }
       return 0;
     }
   }
-
   threads_lock_.release();
+
   return -1;
 
 }
 
 int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
 {
-  cancelNonCurrentThreads(currentThread);
+  cancelNonCurrentThreads();
   size_t return_val = 0;
   while(num_threads_ != 1)
   {Scheduler::instance()->yield();}
@@ -405,9 +404,9 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
 
   argv[(size_t)chars_per_arg.size()] = NULL;
 
-  retvals_lock_.acquire();
+  threads_lock_.acquire();
   retvals_.clear();
-  retvals_lock_.release();
+  threads_lock_.release();
 
   Loader *old_loader = loader_;
   ssize_t old_fd = fd_;
@@ -449,8 +448,8 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   
 size_t UserProcess::getAvailablePageOffset()
 {
+  threads_lock_.acquire();
   size_t offset = 0;
-  available_offsets_lock_.acquire();
   if (available_offsets_.size() == 0)
   {
     offset = vpage_offset_;
@@ -461,24 +460,19 @@ size_t UserProcess::getAvailablePageOffset()
     offset = available_offsets_[0];
     available_offsets_.pop_front();
   }
-  available_offsets_lock_.release();
-
+  threads_lock_.release();
   return offset;
 }
 
 void UserProcess::freePageOffset(size_t offset)
 {
-  available_offsets_lock_.acquire();
   available_offsets_.push_back(offset);
-  available_offsets_lock_.release();
 }
 
 void UserProcess::clearAvailableOffsets()
 {
-  available_offsets_lock_.acquire();
   available_offsets_.clear();
   vpage_offset_ = 0;
-  available_offsets_lock_.release();
 }
 
 
