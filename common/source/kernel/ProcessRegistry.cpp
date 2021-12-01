@@ -99,9 +99,17 @@ void ProcessRegistry::createProcess(const char* path)
 {
   debug(PROCESS_REG, "create process %s\n", path);
   UserProcess* process = new UserProcess(path, new FileSystemInfo(*working_dir_), getNewPID());
-  debug(PROCESS_REG, "created userprocess %s\n", path);
-  Scheduler::instance()->addNewThread(process->getThreads()->front());
-  debug(PROCESS_REG, "added thread %s\n", path);
+  if(process != NULL)
+  {
+    debug(PROCESS_REG, "created userprocess %s\n", path);
+    Scheduler::instance()->addNewThread(process->getThreads()->front());
+    debug(PROCESS_REG, "added thread %s\n", path);
+  }
+  else
+  {
+    debug(PROCESS_REG, "Creating Process %s Failed!\n", path);
+  }
+
 }
 
 void ProcessRegistry::createProcess(UserProcess *process)
