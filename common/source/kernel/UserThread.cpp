@@ -251,7 +251,7 @@ void UserThread::cleanupThread(size_t retval)
   process_->threads_lock_.acquire();
   if (is_killed_)
   {
-      process_->threads_lock_.acquire();
+      process_->threads_lock_.release();
       return;      
   }
 
