@@ -51,7 +51,7 @@ uint32 Scheduler::schedule()
     if((*it)->schedulable())
     {
       currentThread = *it;
-     
+
       break;
     }
      

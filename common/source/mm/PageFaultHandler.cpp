@@ -39,6 +39,7 @@ inline bool PageFaultHandler::checkPageFaultIsValid(size_t address, bool user,
     {
       debug(COW, "Copy Page / Set writeable\n");
       currentThread->handled_cow = true;
+      /// TODO FORK: RC -2 Leads to KP with multithreaded fork (assert hits), two map the same page
       ArchMemory::copyPage(currentThread->loader_->arch_memory_, address);
       return true;
     }
@@ -96,6 +97,7 @@ inline void PageFaultHandler::handlePageFault(size_t address, bool user,
               debug(PAGEFAULT, "ERROR: Upper guard page!\n");
               Syscall::exit(9998);
           }
+          /// TODO MULTITHREADING: Growing stacks - Can't map stack of other thread -1 topic
           else if(page_offset > thread->getStackBase() &&  page_offset <= (thread->getStackBase() + MAX_STACK_PAGES))
           {
               debug(PAGEFAULT, "STACK: Add new page: %zd\n", page_offset);

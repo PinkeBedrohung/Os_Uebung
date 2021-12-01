@@ -132,7 +132,6 @@ UserThread::UserThread(UserThread &thread, UserProcess *process) : Thread(proces
     to_cancel_ = false;
 
     stack_base_nr_ = thread.stack_base_nr_;
-    is_joinable_ = thread.is_joinable_;
     stack_page_ = USER_BREAK / PAGE_SIZE - stack_base_nr_ - 1;
     
     ArchThreads::createUserRegisters(user_registers_, loader_->getEntryFunction(),
@@ -152,7 +151,8 @@ UserThread::~UserThread()
     assert(Scheduler::instance()->isCurrentlyCleaningUp());
 
     debug(USERTHREAD, "~UserThread - TID %zu\n", getTID());
-    
+
+    /// TODO MULTITHREADING: Should be moved to pthread_exit... (No reduction)
     if (process_->getLoader() != nullptr) //&& !first_thread_)
     {
         for (size_t page_offset : used_offsets_)
