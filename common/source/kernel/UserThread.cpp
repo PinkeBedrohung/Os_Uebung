@@ -14,7 +14,7 @@
 
 UserThread::UserThread(UserProcess *process) : Thread(process->getFsInfo(), process->getFilename(),
             Thread::USER_THREAD), fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber()),
-            alive_cond_(&process->alive_lock_, "alive_cond_"), cancel_lock_("cancel_lock")
+            alive_cond_(&process->alive_lock_, "alive_cond_"), cancel_lock_("cancel_lock"), is_killed_(false), to_be_killed_(false)
 {
     setThreadID(Scheduler::instance()->getNewTID());
     stack_base_nr_ = process->getAvailablePageOffset() + (4 + MAX_STACK_ARG_PAGES);
@@ -25,13 +25,12 @@ UserThread::UserThread(UserProcess *process) : Thread(process->getFsInfo(), proc
     first_thread_ = false;
     retval_ = 0;
     is_joinable_ = JOINABLE;
-    is_killed_ = false;
 }
 
 UserThread::UserThread(UserProcess *process, void *(*routine)(void *), void *args, void *entry_function) : 
             Thread(process->getFsInfo(), process->getFilename(), Thread::USER_THREAD), fd_(process->getFd()),
             process_(process), terminal_number_(process->getTerminalNumber()), alive_cond_(&process->alive_lock_, "alive_cond_"),
-            cancel_lock_("cancel_lock")
+            cancel_lock_("cancel_lock"), is_killed_(false), to_be_killed_(false)
 {
     setThreadID(Scheduler::instance()->getNewTID());
     stack_base_nr_ = process->getAvailablePageOffset() + (4 + MAX_STACK_ARG_PAGES);
@@ -41,7 +40,6 @@ UserThread::UserThread(UserProcess *process, void *(*routine)(void *), void *arg
     to_cancel_ = false;
     retval_ = 0;
     is_joinable_ = JOINABLE;
-    is_killed_ = false;
 
     debug(USERTHREAD, "ATTENTION: Not first Thread\n, setting rdi:%zu , and rsi:%zu\n", (size_t)routine, (size_t)args);
     user_registers_->rdi = (size_t)routine;
@@ -148,7 +146,8 @@ void UserThread::createThread(void *entry_function)
 
 UserThread::UserThread(UserThread &thread, UserProcess *process) : Thread(process->getFsInfo(), process->getFilename(),
             Thread::USER_THREAD), fd_(process->getFd()), process_(process), terminal_number_(process->getTerminalNumber()),
-            alive_cond_(&process->alive_lock_, "alive_cond_"), cancel_lock_("cancel_lock"), stack_base_nr_(thread.stack_base_nr_)
+            alive_cond_(&process->alive_lock_, "alive_cond_"), cancel_lock_("cancel_lock"), is_killed_(false), to_be_killed_(false), stack_base_nr_(thread.stack_base_nr_)
+            
 {
     setThreadID(Scheduler::instance()->getNewTID());
     debug(EXEC, "TID: %ld\n", getTID());
@@ -156,9 +155,7 @@ UserThread::UserThread(UserThread &thread, UserProcess *process) : Thread(proces
     loader_ = process->getLoader();
     to_cancel_ = false;
 
-    is_killed_ = false;
 
-    stack_base_nr_ = thread.stack_base_nr_;
     stack_page_ = USER_BREAK / PAGE_SIZE - stack_base_nr_ - 1;
     
     ArchThreads::createUserRegisters(user_registers_, loader_->getEntryFunction(),
@@ -272,12 +269,6 @@ ustl::list<size_t> UserThread::getUsedOffsets()
 
 void UserThread::cleanupThread(size_t retval)
 {
-  while (this->holding_lock_list_)
-  {
-      debug(USERPROCESS, "Yield\n");
-      Scheduler::instance()->yield();
-  }
-
   process_->threads_lock_.acquire();
   if (is_killed_)
   {
@@ -286,7 +277,6 @@ void UserThread::cleanupThread(size_t retval)
   }
 
   is_killed_ = true;
-
   if (process_->getLoader() != nullptr) //&& !first_thread_)
   {
       for (size_t page_offset : getUsedOffsets())

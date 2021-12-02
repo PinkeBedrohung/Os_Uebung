@@ -73,8 +73,8 @@ inline void PageFaultHandler::handlePageFault(size_t address, bool user,
     bool user_thread = currentThread->getThreadType() == Thread::USER_THREAD;
     if (user_thread)
     {
-      const pointer virt_page_start_addr = address & ~(PAGE_SIZE - 1);
-      const size_t page = virt_page_start_addr / PAGE_SIZE;
+      //const pointer virt_page_start_addr = address & ~(PAGE_SIZE - 1);
+      const size_t page = address / PAGE_SIZE;
       const size_t page_offset = (size_t) ((USER_BREAK/PAGE_SIZE - 1) - page);
       UserThread *thread = (UserThread*) currentThread;
       if(present && currentThread->handled_cow)
@@ -82,7 +82,7 @@ inline void PageFaultHandler::handlePageFault(size_t address, bool user,
         currentThread->handled_cow = false;
         return;
       }
-      else if (page_offset <= MAX_THREADS * MAX_THREAD_PAGES)
+      else if (page_offset <= MAX_THREADS * (MAX_STACK_PAGES + 4) + 4 + MAX_STACK_ARG_PAGES)
       {
           debug(PAGEFAULT, "STACK: Page offset: %zd\n", page_offset);
           debug(PAGEFAULT, "STACK: Stack base: %zd\n", thread->getStackBase());

@@ -59,7 +59,8 @@ public:
     int is_joinable_;
 
     bool is_killed_;
-  
+    bool to_be_killed_;
+
     size_t canceltype_ = PTHREAD_CANCEL_DEFERRED;
     size_t oldcanceltype_ = NULL;
     size_t cancelstate_ = PTHREAD_CANCEL_ENABLE;

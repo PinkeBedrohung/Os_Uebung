@@ -273,6 +273,7 @@ size_t Syscall::fork()
   }
   else
   {
+    ProcessRegistry::instance()->processExit();
     delete new_process;
   }
 

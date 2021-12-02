@@ -81,7 +81,16 @@ uint32 Scheduler::schedule()
     currentThreadRegisters = currentThread->kernel_registers_;
     ret = 0;
   }
-  if(((UserThread*)currentThread)->to_cancel_ && currentThread->switch_to_userspace_ && 
+  
+  if(currentThread->thread_type_ == Thread::USER_THREAD && ((UserThread*)currentThread)->to_be_killed_ && currentThread->holding_lock_list_ == 0 && currentThread->state_ != Cancelled)
+  {
+    currentThread->setState(Cancelled);
+    debug(SCHEDULER, "TEST\n");
+    schedule();
+    return 0;
+  }
+
+  if(currentThread->thread_type_ == Thread::USER_THREAD && ((UserThread*)currentThread)->to_cancel_ && currentThread->switch_to_userspace_ && 
         ((UserThread*)currentThread)->canceltype_==((UserThread*)currentThread)->PTHREAD_CANCEL_ASYNCHRONOUS)
   {
     debug(SCHEDULER,"CANCEL CALLED FROM SCHEDULER\n");

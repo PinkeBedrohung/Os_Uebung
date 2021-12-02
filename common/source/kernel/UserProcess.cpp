@@ -16,7 +16,7 @@
 UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 pid, uint32 terminal_number) : 
         //holding_cow_(false),
         alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), retvals_lock_("UserProcess::retvals_lock_"),
-        available_offsets_lock_("UserProcess::available_offsets_lock_"),
+        available_offsets_lock_("UserProcess::available_offsets_lock_"),recursion_lock_("UserProcess::recursion_lock_"),
         fd_(VfsSyscall::open(filename, O_RDONLY)), pid_(pid), filename_(filename), fs_info_(fs_info), 
         terminal_number_(terminal_number)//, parent_process_(0), child_processes_()
         , num_threads_(0), vpage_offset_(0)       
@@ -42,7 +42,7 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
 
 UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) : //holding_cow_(true),
          alive_lock_("UserProcess::alive_lock_"), threads_lock_("UserProcess::threads_lock_"), retvals_lock_("UserProcess::retvals_lock_"),
-         available_offsets_lock_("UserProcess::available_offsets_lock_"),
+         available_offsets_lock_("UserProcess::available_offsets_lock_"), recursion_lock_("UserProcess::recursion_lock_"),
          fd_(VfsSyscall::open(process.filename_, O_RDONLY)),//fd_(VfsSyscall::open(process.getFilename().c_str(), O_RDONLY))
          pid_(ProcessRegistry::instance()->getNewPID()),
          filename_(process.getFilename()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
@@ -229,8 +229,14 @@ void UserProcess::cancelNonCurrentThreads()
     {
       if ((*it)->schedulable())
       {
+        ((UserThread *)(*it))->to_be_killed_ = true;
         //(*it)->setState(Cancelled);
         threads_lock_.release();
+        while ((*it)->holding_lock_list_ != 0)
+        {
+            debug(USERPROCESS, "Yield\n");
+            Scheduler::instance()->yield();
+        }
         ((UserThread*)(*it))->cleanupThread(-1);
         threads_lock_.acquire();
         (*it)->kill();///  MULTITHREADING: Severe RC -3 
@@ -370,8 +376,21 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   }
   //debug(EXEC,"UserProcess  page counter = %d\n",page_counter);
   */
-  filename_ = ustl::string(path);
-  int32_t fd = VfsSyscall::open(filename_.c_str(), O_RDONLY); 
+  
+  
+  ustl::string filename = ustl::string(path);
+  if(filename.size() >= EXEC_MAX_PATHSIZE)
+  {
+    debug(EXEC,"Filename is to long");
+    return -1;
+  }
+  int32_t fd = VfsSyscall::open(filename.c_str(), O_RDONLY); 
+  if(fd == -1)
+  {
+    VfsSyscall::close(fd);
+    return -1;
+  }
+  
   debug(USERPROCESS,"Filedescriptor ========= %d \n",fd);
   //currentThread->user_registers_ = new ArchThreadRegisters();
   //
@@ -379,6 +398,13 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   loader->loadExecutableAndInitProcess();
 
   ArchThreads::printThreadRegisters(currentThread);
+  recursion_lock_.acquire();
+  if(checkExecRecursion(filename))
+  {
+    recursion_lock_.release();
+    return -1;
+  }
+  recursion_lock_.release();
   /*
   char **argv = (char**)kmalloc(((size_t)chars_per_arg.size() + 1) * sizeof(char*));
 
@@ -403,6 +429,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
 
   Loader *old_loader = loader_;
   ssize_t old_fd = fd_;
+  filename_ = filename;
   loader_ = loader;
   fd_=fd;
   currentThread->loader_ = loader;
@@ -441,6 +468,40 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   return return_val;
 }
   
+bool UserProcess::checkExecRecursion(ustl::string path)
+{
+
+  bool found = false;
+  int itr = 0;
+  
+  for(auto pathname : opend_process_list_)
+  {
+
+    if(pathname.compare(path))
+    {
+      opend_process_counter_.at(itr)++;
+      found = true;
+
+      if(opend_process_counter_.at(itr) == EXEC_MAX_RECURSION)
+      {
+        return 1;
+      }
+    }
+
+    itr++;
+  }
+
+  if(!found)
+  {
+    opend_process_list_.push_back(path);
+    opend_process_counter_.push_back(1);
+  }
+  
+  return 0;
+}
+
+
+
 size_t UserProcess::getAvailablePageOffset()
 {
   threads_lock_.acquire();
@@ -448,7 +509,7 @@ size_t UserProcess::getAvailablePageOffset()
   if (available_offsets_.size() == 0)
   {
     offset = vpage_offset_;
-    vpage_offset_ += MAX_THREAD_PAGES;
+    vpage_offset_ += MAX_STACK_PAGES+4;
   }
   else
   {
