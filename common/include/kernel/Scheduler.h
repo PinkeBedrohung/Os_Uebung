@@ -37,7 +37,8 @@ class Scheduler
      * @return 1 if the InterruptHandler should switch to Usercontext or 0 if we can stay in Kernelcontext
      */
     uint32 schedule();
-
+    unsigned long long scheduledtime = 0;
+    unsigned long long rdtsc = 0;
     size_t getNewTID();
 
   protected:

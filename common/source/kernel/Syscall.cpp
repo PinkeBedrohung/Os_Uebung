@@ -18,14 +18,17 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
   size_t return_value = 0;
   debug(SYSCALL, "CurrentThread %ld to_cancel_: %d\n",((UserThread*)currentThread)->getTID(), (int)((UserThread*)currentThread)->to_cancel_);
    /// TODO MULTITHREADING: RC -1
+  ((UserThread*)currentThread)->getProcess()->threads_lock_.acquire();
   if(((UserThread*)currentThread)->to_cancel_)
   {
+   
+  assert(((UserThread*)currentThread)->getProcess()->threads_lock_.isHeldBy(currentThread)));
     /// TODO MULTITHREADING: This does not save retval?
     ((UserThread*)currentThread)->cleanupThread(-1);
     currentThread->kill();
     return 0;
   }
-
+  ((UserThread*)currentThread)->getProcess()->threads_lock_.release();
   if ((syscall_number != sc_sched_yield) && (syscall_number != sc_outline)) // no debug print because these might occur very often
   {
     debug(SYSCALL, "Syscall %zd called with arguments %zd(=%zx) %zd(=%zx) %zd(=%zx) %zd(=%zx) %zd(=%zx)\n",
@@ -291,8 +294,8 @@ void Syscall::exitThread(size_t retval)
 size_t Syscall::clock()
 {
   /// TODO OTHER: (Clock) Clock is about CPU time, not total time, so calculating now - start is incorrect
-  unsigned long long rdtsc = ArchThreads::rdtsc(); //now
-  unsigned long long difference = rdtsc - ((UserThread*)currentThread)->getProcess()->cpu_start_rdtsc;
+  //unsigned long long rdtsc = ArchThreads::rdtsc(); //now
+  unsigned long long difference = Scheduler::instance()->scheduledtime - ((UserThread*)currentThread)->getProcess()->cpu_start_rdtsc;
   //debug(SYSCALL,"Difference: %lld\n", difference);
   //debug(SYSCALL,"rdtsc: %lld\n", rdtsc);
   size_t retval = (difference)/(Scheduler::instance()->average_rdtsc_/(54925439/1000));
@@ -303,7 +306,6 @@ size_t Syscall::clock()
 
 size_t Syscall::sleep(unsigned int seconds)
 {
-  /// Reasons for inaccuracy are in the calculation of average_rdtsc_
   unsigned long long current_rdtsc = ArchThreads::rdtsc();
   //debug(SYSCALL,"rdtsc time: %lld\n", current_rdtsc);
   unsigned long long additional_time = (seconds*1000)*(Scheduler::instance()->average_rdtsc_/(54925439/1000000));
