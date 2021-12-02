@@ -223,7 +223,6 @@ void UserProcess::cancelNonCurrentThreads()
   threads_lock_.acquire();
   for (auto it = threads_.begin(); it != threads_.end(); it++)
   {
-     //debug(USERPROCESS, "You came to the wrong house fool \n");
     if ((*it)->getTID() != currentThread->getTID())
     {
       if ((*it)->schedulable())

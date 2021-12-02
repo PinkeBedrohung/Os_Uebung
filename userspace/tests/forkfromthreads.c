@@ -20,7 +20,7 @@ int main()
 {
     pthread_t thread[20];
 
-    for (int i = 0; i < 50; i++)
+    for (int i = 0; i < 20; i++)
     {
         pthread_create(&(thread[i]), 0x0, (void*(*)())&thread_function, 0x0);
 
