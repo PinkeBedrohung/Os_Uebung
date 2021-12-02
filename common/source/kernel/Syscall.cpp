@@ -133,6 +133,10 @@ void Syscall::exit(size_t exit_code)
 
   debug(SYSCALL, "Syscall::EXIT: called, exit_code: %zd, TID: %zd, PID: %zd\n", exit_code, currentThread->getTID(), currentUserThread->getProcess()->getPID());
   
+  //process->threads_lock_.acquire();
+  process->cancelNonCurrentThreads();
+  //process->threads_lock_.release();
+
   // This part probably also has to be implemented with pthread_exit when the last thread is being destroyed
   ProcessRegistry::instance()->lockLists();
   ProcessExitInfo pexit_info(exit_code, currentUserThread->getProcess()->getPID());
@@ -141,9 +145,7 @@ void Syscall::exit(size_t exit_code)
   ProcessRegistry::instance()->signalPidAvailable(pexit_info.pid_);
   ProcessRegistry::instance()->unlockLists();
   debug(WAIT_PID, "Process exited - Exit_val: %ld, PID: %ld\n", pexit_info.exit_val_, pexit_info.pid_);
-  //process->threads_lock_.acquire();
-  process->cancelNonCurrentThreads();
-  //process->threads_lock_.release();
+
   currentUserThread->cleanupThread(exit_code);
   currentThread->kill();  
 }

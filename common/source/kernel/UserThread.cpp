@@ -272,6 +272,11 @@ ustl::list<size_t> UserThread::getUsedOffsets()
 
 void UserThread::cleanupThread(size_t retval)
 {
+  while (this->holding_lock_list_)
+  {
+      Scheduler::instance()->yield();
+  }
+
   process_->threads_lock_.acquire();
   if (is_killed_)
   {

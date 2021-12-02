@@ -221,6 +221,7 @@ uint64 UserProcess::copyPages()
 
 void UserProcess::cancelNonCurrentThreads()
 {
+  debug(USERPROCESS, "Thread: %ld called cancelNonCurrentThreads\n", currentThread->getTID());
   threads_lock_.acquire();
   for (auto it = threads_.begin(); it != threads_.end(); it++)
   {
@@ -228,12 +229,12 @@ void UserProcess::cancelNonCurrentThreads()
     {
       if ((*it)->schedulable())
       {
-        (*it)->setState(Cancelled);
+        //(*it)->setState(Cancelled);
         threads_lock_.release();
         ((UserThread*)(*it))->cleanupThread(-1);
         threads_lock_.acquire();
         (*it)->kill();///  MULTITHREADING: Severe RC -3 
-        debug(USERPROCESS, "Removed TID %zu from Threadlist of PID %zu - %zu still assigned to the process\n", currentThread->getTID(), getPID(), getNumThreads());
+        debug(USERPROCESS, "Set Thread-TID %zu of Process-PID %zu toBeDestroyed\n", (*it)->getTID(), getPID());
       }
     }
   }
@@ -256,7 +257,6 @@ size_t UserProcess::createUserThread(size_t* tid, void* (*routine)(void*), void*
     threads_lock_.release();
 
     Scheduler::instance()->addNewThread(thread);
-    /// TODO MULTITHREADING: Other -1 Dereferencing ptr with kernel lock
 
     *tid = thread->getTID();
     return 0;
