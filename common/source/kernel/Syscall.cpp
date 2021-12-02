@@ -338,9 +338,10 @@ int Syscall::exec(const char *path, char const* arg[])
 size_t Syscall::joinThread(size_t thread, void** value_ptr)
 {
   UserThread* calling_thread = ((UserThread*)currentThread);
-  UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
+  UserProcess* current_process = ((UserThread*)currentThread)->getProcess();
+  current_process->threads_lock_.acquire(); 
   UserThread* thread_to_join = (UserThread*)(current_process->getThread(thread));
-
+  current_process->threads_lock_.release();
 
   if((uint64)value_ptr >= USER_BREAK && value_ptr != NULL)
   {
@@ -414,7 +415,9 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
 size_t Syscall::cancelThread(size_t tid)
 {
   UserProcess* process = ((UserThread*)currentThread)->getProcess();
+  process->threads_lock_.acquire();
   UserThread* thread = (UserThread*)(process->getThread(tid));
+  process->threads_lock_.release();
 /// Mapping retval before thread is actually dead? What if thread calls pthread_exit(-1), it gets identified as cancelled?
   if (thread == NULL)
   {
@@ -427,8 +430,10 @@ size_t Syscall::cancelThread(size_t tid)
 
 size_t Syscall::detachThread(size_t tid)
 {
-  UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
+  UserProcess* current_process = ((UserThread*)currentThread)->getProcess();
+  current_process->threads_lock_.acquire(); 
   UserThread* thread = (UserThread*)(current_process->getThread(tid));
+  current_process->threads_lock_.release();
 
   if (thread == NULL)
   {

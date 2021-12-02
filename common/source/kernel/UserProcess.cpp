@@ -115,17 +115,18 @@ void UserProcess::setPID(size_t pid){
 Thread* UserProcess::getThread(size_t tid)
 {
   /// TODO MULTITHREADING: This is locked locally... RC -3
-  threads_lock_.acquire();
+ // threads_lock_.acquire();
+  assert(threads_lock_.isHeldBy(currentThread));
   for (auto thread : threads_)
   {
     if (thread->getTID() == tid)
     {
-      threads_lock_.release();
+      //threads_lock_.release();
       return thread;
     }
   }
 
-  threads_lock_.release();
+  //threads_lock_.release();
   return NULL;
 }
 
