@@ -317,20 +317,12 @@ size_t Syscall::sleep(unsigned int seconds)
 
 int Syscall::exec(const char *path, char const* arg[])
 {
-  /// TODO EXEC: -1 Params why a path dereference for the check?
-  if ((size_t)*path >= USER_BREAK)
-  {
-    return -1;
-  }
-
-  /// This check does nothing
-  if(((UserThread*)currentThread)->getProcess() == 0)
+  if ((size_t)path >= USER_BREAK || (size_t)arg != NULL)
   {
     return -1;
   }
 
   return ((UserThread *)currentThread)->getProcess()->replaceProcessorImage(path, arg);
-
 }
 
 size_t Syscall::joinThread(size_t thread, void** value_ptr)

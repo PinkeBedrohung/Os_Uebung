@@ -103,6 +103,29 @@ size_t UserThread::execStackSetup(char **argv, ustl::list<int> &chars_per_arg,si
     return 0;
 }
 
+void UserThread::execInit()
+{
+    bool vpn_mapped;
+
+    process_->clearAvailableOffsets();
+    stack_base_nr_ = process_->getAvailablePageOffset() + (4 + MAX_STACK_ARG_PAGES);;
+    
+    size_t page_for_stack = PageManager::instance()->allocPPN();
+    stack_page_ = USER_BREAK / PAGE_SIZE - stack_base_nr_ - 1;
+    vpn_mapped = loader_->arch_memory_.mapPage(stack_page_, page_for_stack, 1);
+    assert(vpn_mapped && "Virtual page for stack was already mapped - this should never happen");
+
+    ArchThreadRegisters *old_user_registers = user_registers_;
+    ArchThreads::createUserRegisters(user_registers_, loader_->getEntryFunction(), (void *)(stack_page_ * PAGE_SIZE + PAGE_SIZE - sizeof(pointer)), getKernelStackStartPointer());
+    ArchThreads::setAddressSpace(this, loader_->arch_memory_);
+    delete old_user_registers;
+
+    name_ = process_->getFilename();
+    fd_ = process_->getFd();
+
+    debug(USERTHREAD, "entry function = %p \n", loader_->getEntryFunction());
+}
+
 void UserThread::createThread(void *entry_function)
 {
     size_t page_for_stack = PageManager::instance()->allocPPN();

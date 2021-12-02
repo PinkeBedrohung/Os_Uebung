@@ -313,28 +313,15 @@ size_t UserProcess::cancelUserThread(size_t tid)
 
 int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
 {
-  cancelNonCurrentThreads();
   size_t return_val = 0;
-  while(num_threads_ != 1)
-  {Scheduler::instance()->yield();}
-
-  /// TODO EXEC: Other -3 Cancelling all threads before doing param checks...
-  /// TODO EXEC: Params -2/-3 arg array can be a kernel pointer or contain a kernel pointer...
-
-  if ((unsigned long long)*path >= USER_BREAK)
-    {
-      return_val = -1;
-      return return_val;
-    }
-
-  //Old fd deleting has to be handled
- 
-  
+  (void)arg;
+  /*
   int char_counter;
   size_t size_counter;
   int page_counter = 0;
+  
   ustl::list<int> chars_per_arg;
-
+  
   if(arg != NULL)
   {
     size_counter = sizeof(char*);           //  NULL pointer at end of args
@@ -381,7 +368,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
     return return_val;
   }
   //debug(EXEC,"UserProcess  page counter = %d\n",page_counter);
-
+  */
   filename_ = ustl::string(path);
   int32_t fd = VfsSyscall::open(filename_.c_str(), O_RDONLY); 
   debug(USERPROCESS,"Filedescriptor ========= %d \n",fd);
@@ -391,7 +378,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   loader->loadExecutableAndInitProcess();
 
   ArchThreads::printThreadRegisters(currentThread);
-
+  /*
   char **argv = (char**)kmalloc(((size_t)chars_per_arg.size() + 1) * sizeof(char*));
 
   int argv_size = 1;
@@ -404,41 +391,47 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   }
 
   argv[(size_t)chars_per_arg.size()] = NULL;
+  */
+  cancelNonCurrentThreads();
+  while(num_threads_ != 1)
+  {
+    Scheduler::instance()->yield();
+  }
 
-  threads_lock_.acquire();
   retvals_.clear();
-  threads_lock_.release();
 
   Loader *old_loader = loader_;
   ssize_t old_fd = fd_;
   loader_ = loader;
   fd_=fd;
   currentThread->loader_ = loader;
-  
-  //ArchThreads::setAddressSpace(currentThread, loader_->arch_memory_);
-  return_val = ((UserThread*)currentThread)->execStackSetup(argv, chars_per_arg, page_counter, size_counter);
+  ((UserThread *)currentThread)->execInit();
+  // ArchThreads::setAddressSpace(currentThread, loader_->arch_memory_);
+  /*
+  return_val = ((UserThread*)currentThread)->execStackSetup(NULL, chars_per_arg, page_counter, size_counter);
   if(return_val != 0)
   {
     return return_val;
   }
+  */
   delete old_loader;
 
   if (old_fd > 0)
   {
     VfsSyscall::close(old_fd);
   }
-
+  /*
   for (size_t i = 0; argv[i] != NULL; i++)
   {
     kfree(argv[i]);
   }
   kfree(argv);
-
+  
   while (chars_per_arg.size() != 0)
   {
     chars_per_arg.pop_front();
   }
-
+  */
   ArchThreads::printThreadRegisters(currentThread);
 
   currentThread->switch_to_userspace_ = 1;
