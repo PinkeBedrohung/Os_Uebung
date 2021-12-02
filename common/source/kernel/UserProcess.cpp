@@ -294,6 +294,7 @@ size_t UserProcess::cancelUserThread(size_t tid)
           ((UserThread*)(*it))->cleanupThread(-1);
           (*it)->kill();
         /// TODO MULTITHREADING: Severe RC -3?????????????????
+        
         }
       }
       else

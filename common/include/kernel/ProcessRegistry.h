@@ -8,6 +8,8 @@
 #include "ProcessExitInfo.h"
 #include "PidWaits.h"
 
+#define MAX_ZOMBIE_PIDS
+
 class ProcessRegistry : public Thread
 {
   public:

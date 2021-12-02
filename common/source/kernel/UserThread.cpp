@@ -274,6 +274,7 @@ void UserThread::cleanupThread(size_t retval)
 {
   while (this->holding_lock_list_)
   {
+      debug(USERPROCESS, "Yield\n");
       Scheduler::instance()->yield();
   }
 

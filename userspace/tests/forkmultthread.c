@@ -9,7 +9,7 @@ void thread_function(int* growing_stack)
     {
     }
     
-    growing_stack[1024 * (1 + pthread_self() % 19)] = 123;
+    growing_stack[1024 * (1 + pthread_self() % 5)] = 123;
 }
 
 int main()

@@ -603,7 +603,7 @@ size_t Syscall::waitpid(size_t pid, pointer status, size_t options)
         pid_waits->list_lock_.release();
       }
       
-      ProcessExitInfo pexit(pr_instance->getExitInfo(check_pid, false));//delete_entry));
+      ProcessExitInfo pexit(pr_instance->getExitInfo(check_pid, delete_entry));
       
       pr_instance->pid_waits_lock_.release();
       pr_instance->unlockLists();

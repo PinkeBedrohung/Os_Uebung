@@ -27,5 +27,8 @@ int main()
         printf("Created Thread: %d\n", i);
     }
 
+    for (size_t i = 0; i < 99999999; i++)
+    {
+    }
     return 0;
 }
