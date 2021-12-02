@@ -17,13 +17,13 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
 {
   size_t return_value = 0;
   //debug(SYSCALL, "CurrentThread %ld to_cancel_: %d\n",((UserThread*)currentThread)->getTID(), (int)((UserThread*)currentThread)->to_cancel_);
-   /// TODO MULTITHREADING: RC -1
+   ///  MULTITHREADING: RC -1
   ((UserThread*)currentThread)->getProcess()->threads_lock_.acquire();
   if(((UserThread*)currentThread)->to_cancel_)
   {
    
    assert((((UserThread*)currentThread)->getProcess()->threads_lock_.isHeldBy(currentThread)));
-    /// TODO MULTITHREADING: This does not save retval?
+    ///  MULTITHREADING: This does not save retval? cleanupthread maps retval
     ((UserThread*)currentThread)->cleanupThread(-1);
     currentThread->kill();
     return 0;
@@ -117,7 +117,7 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
   {
    
    assert((((UserThread*)currentThread)->getProcess()->threads_lock_.isHeldBy(currentThread)));
-    /// TODO MULTITHREADING: This does not save retval?
+    ///  MULTITHREADING: This does not save retval?
     ((UserThread*)currentThread)->cleanupThread(-1);
     currentThread->kill();
     return 0;
@@ -141,8 +141,9 @@ void Syscall::exit(size_t exit_code)
   ProcessRegistry::instance()->signalPidAvailable(pexit_info.pid_);
   ProcessRegistry::instance()->unlockLists();
   debug(WAIT_PID, "Process exited - Exit_val: %ld, PID: %ld\n", pexit_info.exit_val_, pexit_info.pid_);
-
+  //process->threads_lock_.acquire();
   process->cancelNonCurrentThreads();
+  //process->threads_lock_.release();
   currentUserThread->cleanupThread(exit_code);
   currentThread->kill();  
 }
@@ -298,7 +299,7 @@ void Syscall::exitThread(size_t retval)
 
 size_t Syscall::clock()
 {
-  /// TODO OTHER: (Clock) Clock is about CPU time, not total time, so calculating now - start is incorrect
+  ///  OTHER: (Clock) Clock is about CPU time, not total time, so calculating now - start is incorrect
   //unsigned long long rdtsc = ArchThreads::rdtsc(); //now
   unsigned long long difference = Scheduler::instance()->scheduledtime - ((UserThread*)currentThread)->getProcess()->cpu_start_rdtsc;
   //debug(SYSCALL,"Difference: %lld\n", difference);
@@ -428,7 +429,7 @@ size_t Syscall::cancelThread(size_t tid)
   {
     return (size_t) -1U;
   }
-  /// TODO MULTITHREADING: NonStd -1 Should return -1 if thread is not found, here we access a nullptr
+  ///  MULTITHREADING: NonStd -1 Should return -1 if thread is not found, here we access a nullptr
   debug(SYSCALL, "Calling cancelUserThread on Thread: %ld\n", tid);
   return process->cancelUserThread(tid);
 }
@@ -629,7 +630,7 @@ size_t Syscall::getpid()
 
 size_t Syscall::setCancelState(size_t state, size_t oldstate)
 {
-  /// TODO MULTITHREADING: Param -1 (As it happens below as well)
+  ///  MULTITHREADING: Param -1 (As it happens below as well)
   UserThread* thread = ((UserThread*)currentThread);
   UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
 
