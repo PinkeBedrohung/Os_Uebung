@@ -371,9 +371,20 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   //debug(EXEC,"UserProcess  page counter = %d\n",page_counter);
   */
   
-  filename_ = ustl::string(path);
   
-  int32_t fd = VfsSyscall::open(filename_.c_str(), O_RDONLY); 
+  ustl::string filename = ustl::string(path);
+  if(filename.size() >= EXEC_MAX_PATHSIZE)
+  {
+    debug(EXEC,"Filename is to long");
+    return -1;
+  }
+  int32_t fd = VfsSyscall::open(filename.c_str(), O_RDONLY); 
+  if(fd == -1)
+  {
+    VfsSyscall::close(fd);
+    return -1;
+  }
+  
   debug(USERPROCESS,"Filedescriptor ========= %d \n",fd);
   //currentThread->user_registers_ = new ArchThreadRegisters();
   //
@@ -382,7 +393,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
 
   ArchThreads::printThreadRegisters(currentThread);
   recursion_lock_.acquire();
-  if(checkExecRecursion(filename_))
+  if(checkExecRecursion(filename))
   {
     recursion_lock_.release();
     return -1;
@@ -412,6 +423,7 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
 
   Loader *old_loader = loader_;
   ssize_t old_fd = fd_;
+  filename_ = filename;
   loader_ = loader;
   fd_=fd;
   currentThread->loader_ = loader;

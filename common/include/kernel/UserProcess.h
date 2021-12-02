@@ -8,6 +8,7 @@
 class UserThread;
 #include "umap.h"
 #define EXEC_MAX_RECURSION 10
+#define EXEC_MAX_PATHSIZE 1024
 class UserProcess
 {
   public:
