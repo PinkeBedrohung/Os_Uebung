@@ -232,6 +232,7 @@ void UserProcess::cancelNonCurrentThreads()
         threads_lock_.release();
         ((UserThread*)(*it))->cleanupThread(-1);
         threads_lock_.acquire();
+        
         (*it)->kill();/// TODO MULTITHREADING: Severe RC -3
         debug(USERPROCESS, "Removed TID %zu from Threadlist of PID %zu - %zu still assigned to the process\n", currentThread->getTID(), getPID(), getNumThreads());
       }
@@ -369,7 +370,9 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   }
   //debug(EXEC,"UserProcess  page counter = %d\n",page_counter);
   */
+  
   filename_ = ustl::string(path);
+  
   int32_t fd = VfsSyscall::open(filename_.c_str(), O_RDONLY); 
   debug(USERPROCESS,"Filedescriptor ========= %d \n",fd);
   //currentThread->user_registers_ = new ArchThreadRegisters();
@@ -397,7 +400,10 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   {
     Scheduler::instance()->yield();
   }
-
+  if(checkExecRecursion(filename_))
+  {
+    return -1;
+  }
   retvals_.clear();
 
   Loader *old_loader = loader_;
@@ -440,6 +446,39 @@ int UserProcess::replaceProcessorImage(const char *path, char const *arg[])
   return return_val;
 }
   
+bool UserProcess::checkExecRecursion(char *path)
+{
+  bool found = false;
+  int itr = 0;
+  
+  for(auto pathname : opend_process_list_)
+  {
+
+    if(pathname == path)
+    {
+      opend_process_counter_.at(itr)++;
+      found = true;
+
+      if(opend_process_counter_.at(itr) == EXEC_MAX_RECURSION)
+      {
+        return 1;
+      }
+    }
+
+    itr++;
+  }
+
+  if(!found)
+  {
+    opend_process_list_.push_back(path);
+    opend_process_counter_.push_back(1);
+  }
+  
+  return 0;
+}
+
+
+
 size_t UserProcess::getAvailablePageOffset()
 {
   threads_lock_.acquire();
