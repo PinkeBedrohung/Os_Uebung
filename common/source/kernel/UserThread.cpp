@@ -212,7 +212,9 @@ void UserThread::copyRegisters(UserThread *thread)
 
 bool UserThread::chainJoin(size_t thread)
 {
+    ((UserThread *)currentThread)->getProcess()->threads_lock_.acquire();
     UserThread *joiner = (UserThread *)((UserThread *)currentThread)->getProcess()->getThread(thread);
+    ((UserThread *)currentThread)->getProcess()->threads_lock_.release();
     size_t caller = currentThread->getTID();
 
     while (joiner != NULL)

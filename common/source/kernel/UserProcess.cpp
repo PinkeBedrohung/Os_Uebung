@@ -27,7 +27,7 @@ UserProcess::UserProcess(ustl::string filename, FileSystemInfo *fs_info, uint32 
   cpu_start_rdtsc = 0;
   if (!loader_ || !loader_->loadExecutableAndInitProcess())
   {
-    /// TODO MULTITHREADING: Other -1 Close fd? Delete Loader?
+    ///  MULTITHREADING: Other -1 Close fd? Delete Loader? SOLVED???
    /// Check out createProcess in ProcRegistry -> We are accessing a dead process afterwards
     //debug(USERPROCESS, "Error: loading %s failed!\n", filename.c_str());
     delete this;
@@ -48,7 +48,7 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
          filename_(process.getFilename()), fs_info_(new FileSystemInfo(*process.getFsInfo())),
          terminal_number_(process.getTerminalNumber())//, parent_process_(&process), child_processes_()
          , num_threads_(0), vpage_offset_(process.getVPageOffset())
-         /// TODO FORK: RC -0 getVPageOffset gets set to 0 with lock while calling exec but who cares
+         ///  FORK: RC -0 getVPageOffset gets set to 0 with lock while calling exec but who cares
 {
   ProcessRegistry::instance()->processStart();
 
@@ -61,7 +61,7 @@ UserProcess::UserProcess(UserProcess &process, UserThread *thread, int* retval) 
   {
     debug(USERPROCESS, "Error: loading %s failed!\n", filename_.c_str());
     *retval = -1;
-    /// TODO FORK: delete loader -> MemLeak (No deduction)
+    ///  FORK: delete loader -> MemLeak (No deduction) Solved in destructor??
     return;
   }
   cpu_start_rdtsc = 0;
@@ -114,18 +114,19 @@ void UserProcess::setPID(size_t pid){
 
 Thread* UserProcess::getThread(size_t tid)
 {
-  /// TODO MULTITHREADING: This is locked locally... RC -3
-  threads_lock_.acquire();
+  ///  MULTITHREADING: This is locked locally... RC -3
+ // threads_lock_.acquire();
+  assert(threads_lock_.isHeldBy(currentThread));
   for (auto thread : threads_)
   {
     if (thread->getTID() == tid)
     {
-      threads_lock_.release();
+      //threads_lock_.release();
       return thread;
     }
   }
 
-  threads_lock_.release();
+  //threads_lock_.release();
   return NULL;
 }
 
@@ -231,7 +232,7 @@ void UserProcess::cancelNonCurrentThreads()
         threads_lock_.release();
         ((UserThread*)(*it))->cleanupThread(-1);
         threads_lock_.acquire();
-        (*it)->kill();/// TODO MULTITHREADING: Severe RC -3
+        (*it)->kill();///  MULTITHREADING: Severe RC -3 
         debug(USERPROCESS, "Removed TID %zu from Threadlist of PID %zu - %zu still assigned to the process\n", currentThread->getTID(), getPID(), getNumThreads());
       }
     }
@@ -292,7 +293,7 @@ size_t UserProcess::cancelUserThread(size_t tid)
           threads_lock_.release();
           ((UserThread*)(*it))->cleanupThread(-1);
           (*it)->kill();
-        /// TODO MULTITHREADING: Severe RC -3
+        /// TODO MULTITHREADING: Severe RC -3?????????????????
         }
       }
       else

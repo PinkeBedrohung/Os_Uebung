@@ -44,14 +44,14 @@ uint32 Scheduler::schedule()
     debug(SCHEDULER, "schedule: currently blocked\n");
     return 0;
   }
-
+  if (rdtsc) scheduledtime += (ArchThreads::rdtsc() - rdtsc); 
   auto it = threads_.begin();
   for(; it != threads_.end(); ++it)
   {
     if((*it)->schedulable())
     {
       currentThread = *it;
-
+      rdtsc = ArchThreads::rdtsc();
       break;
     }
      

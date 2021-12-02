@@ -16,16 +16,19 @@
 size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2, size_t arg3, size_t arg4, size_t arg5)
 {
   size_t return_value = 0;
-  debug(SYSCALL, "CurrentThread %ld to_cancel_: %d\n",((UserThread*)currentThread)->getTID(), (int)((UserThread*)currentThread)->to_cancel_);
-   /// TODO MULTITHREADING: RC -1
+  //debug(SYSCALL, "CurrentThread %ld to_cancel_: %d\n",((UserThread*)currentThread)->getTID(), (int)((UserThread*)currentThread)->to_cancel_);
+   ///  MULTITHREADING: RC -1
+  ((UserThread*)currentThread)->getProcess()->threads_lock_.acquire();
   if(((UserThread*)currentThread)->to_cancel_)
   {
-    /// TODO MULTITHREADING: This does not save retval?
+   
+   assert((((UserThread*)currentThread)->getProcess()->threads_lock_.isHeldBy(currentThread)));
+    ///  MULTITHREADING: This does not save retval? cleanupthread maps retval
     ((UserThread*)currentThread)->cleanupThread(-1);
     currentThread->kill();
     return 0;
   }
-
+  ((UserThread*)currentThread)->getProcess()->threads_lock_.release();
   if ((syscall_number != sc_sched_yield) && (syscall_number != sc_outline)) // no debug print because these might occur very often
   {
     debug(SYSCALL, "Syscall %zd called with arguments %zd(=%zx) %zd(=%zx) %zd(=%zx) %zd(=%zx) %zd(=%zx)\n",
@@ -109,12 +112,17 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     default:
       kprintf("Syscall::syscall_exception: Unimplemented Syscall Number %zd\n", syscall_number);
   }
+  ((UserThread*)currentThread)->getProcess()->threads_lock_.acquire();
   if(((UserThread*)currentThread)->to_cancel_)
   {
+   
+   assert((((UserThread*)currentThread)->getProcess()->threads_lock_.isHeldBy(currentThread)));
+    ///  MULTITHREADING: This does not save retval?
     ((UserThread*)currentThread)->cleanupThread(-1);
     currentThread->kill();
     return 0;
   }
+  ((UserThread*)currentThread)->getProcess()->threads_lock_.release();
   return return_value;
 }
 
@@ -133,8 +141,9 @@ void Syscall::exit(size_t exit_code)
   ProcessRegistry::instance()->signalPidAvailable(pexit_info.pid_);
   ProcessRegistry::instance()->unlockLists();
   debug(WAIT_PID, "Process exited - Exit_val: %ld, PID: %ld\n", pexit_info.exit_val_, pexit_info.pid_);
-
+  //process->threads_lock_.acquire();
   process->cancelNonCurrentThreads();
+  //process->threads_lock_.release();
   currentUserThread->cleanupThread(exit_code);
   currentThread->kill();  
 }
@@ -290,9 +299,9 @@ void Syscall::exitThread(size_t retval)
 
 size_t Syscall::clock()
 {
-  /// TODO OTHER: (Clock) Clock is about CPU time, not total time, so calculating now - start is incorrect
-  unsigned long long rdtsc = ArchThreads::rdtsc(); //now
-  unsigned long long difference = rdtsc - ((UserThread*)currentThread)->getProcess()->cpu_start_rdtsc;
+  ///  OTHER: (Clock) Clock is about CPU time, not total time, so calculating now - start is incorrect
+  //unsigned long long rdtsc = ArchThreads::rdtsc(); //now
+  unsigned long long difference = Scheduler::instance()->scheduledtime - ((UserThread*)currentThread)->getProcess()->cpu_start_rdtsc;
   //debug(SYSCALL,"Difference: %lld\n", difference);
   //debug(SYSCALL,"rdtsc: %lld\n", rdtsc);
   size_t retval = (difference)/(Scheduler::instance()->average_rdtsc_/(54925439/1000));
@@ -303,7 +312,6 @@ size_t Syscall::clock()
 
 size_t Syscall::sleep(unsigned int seconds)
 {
-  /// Reasons for inaccuracy are in the calculation of average_rdtsc_
   unsigned long long current_rdtsc = ArchThreads::rdtsc();
   //debug(SYSCALL,"rdtsc time: %lld\n", current_rdtsc);
   unsigned long long additional_time = (seconds*1000)*(Scheduler::instance()->average_rdtsc_/(54925439/1000000));
@@ -328,9 +336,10 @@ int Syscall::exec(const char *path, char const* arg[])
 size_t Syscall::joinThread(size_t thread, void** value_ptr)
 {
   UserThread* calling_thread = ((UserThread*)currentThread);
-  UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
+  UserProcess* current_process = ((UserThread*)currentThread)->getProcess();
+  current_process->threads_lock_.acquire(); 
   UserThread* thread_to_join = (UserThread*)(current_process->getThread(thread));
-
+  current_process->threads_lock_.release();
 
   if((uint64)value_ptr >= USER_BREAK && value_ptr != NULL)
   {
@@ -404,21 +413,25 @@ size_t Syscall::joinThread(size_t thread, void** value_ptr)
 size_t Syscall::cancelThread(size_t tid)
 {
   UserProcess* process = ((UserThread*)currentThread)->getProcess();
+  process->threads_lock_.acquire();
   UserThread* thread = (UserThread*)(process->getThread(tid));
+  process->threads_lock_.release();
 /// Mapping retval before thread is actually dead? What if thread calls pthread_exit(-1), it gets identified as cancelled?
   if (thread == NULL)
   {
     return (size_t) -1U;
   }
-  /// TODO MULTITHREADING: NonStd -1 Should return -1 if thread is not found, here we access a nullptr
+  ///  MULTITHREADING: NonStd -1 Should return -1 if thread is not found, here we access a nullptr
   debug(SYSCALL, "Calling cancelUserThread on Thread: %ld\n", tid);
   return process->cancelUserThread(tid);
 }
 
 size_t Syscall::detachThread(size_t tid)
 {
-  UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
+  UserProcess* current_process = ((UserThread*)currentThread)->getProcess();
+  current_process->threads_lock_.acquire(); 
   UserThread* thread = (UserThread*)(current_process->getThread(tid));
+  current_process->threads_lock_.release();
 
   if (thread == NULL)
   {
@@ -609,7 +622,7 @@ size_t Syscall::getpid()
 
 size_t Syscall::setCancelState(size_t state, size_t oldstate)
 {
-  /// TODO MULTITHREADING: Param -1 (As it happens below as well)
+  ///  MULTITHREADING: Param -1 (As it happens below as well)
   UserThread* thread = ((UserThread*)currentThread);
   UserProcess* current_process = ((UserThread*)currentThread)->getProcess(); 
 
