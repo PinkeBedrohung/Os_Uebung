@@ -18,17 +18,11 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
   size_t return_value = 0;
   //debug(SYSCALL, "CurrentThread %ld to_cancel_: %d\n",((UserThread*)currentThread)->getTID(), (int)((UserThread*)currentThread)->to_cancel_);
    ///  MULTITHREADING: RC -1
-  ((UserThread*)currentThread)->getProcess()->threads_lock_.acquire();
   if(((UserThread*)currentThread)->to_cancel_)
   {
-   
-   assert((((UserThread*)currentThread)->getProcess()->threads_lock_.isHeldBy(currentThread)));
-    ///  MULTITHREADING: This does not save retval? cleanupthread maps retval
-    ((UserThread*)currentThread)->cleanupThread(-1);
     currentThread->kill();
     return 0;
   }
-  ((UserThread*)currentThread)->getProcess()->threads_lock_.release();
   if ((syscall_number != sc_sched_yield) && (syscall_number != sc_outline)) // no debug print because these might occur very often
   {
     debug(SYSCALL, "Syscall %zd called with arguments %zd(=%zx) %zd(=%zx) %zd(=%zx) %zd(=%zx) %zd(=%zx)\n",
@@ -112,17 +106,11 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     default:
       kprintf("Syscall::syscall_exception: Unimplemented Syscall Number %zd\n", syscall_number);
   }
-  ((UserThread*)currentThread)->getProcess()->threads_lock_.acquire();
   if(((UserThread*)currentThread)->to_cancel_)
   {
-   
-   assert((((UserThread*)currentThread)->getProcess()->threads_lock_.isHeldBy(currentThread)));
-    ///  MULTITHREADING: This does not save retval?
-    ((UserThread*)currentThread)->cleanupThread(-1);
     currentThread->kill();
     return 0;
   }
-  ((UserThread*)currentThread)->getProcess()->threads_lock_.release();
   return return_value;
 }
 
@@ -146,7 +134,6 @@ void Syscall::exit(size_t exit_code)
   ProcessRegistry::instance()->unlockLists();
   debug(WAIT_PID, "Process exited - Exit_val: %ld, PID: %ld\n", pexit_info.exit_val_, pexit_info.pid_);
 
-  currentUserThread->cleanupThread(exit_code);
   currentThread->kill();  
 }
 
@@ -295,7 +282,7 @@ size_t Syscall::createThread(size_t thread, size_t attr, size_t start_routine, s
 void Syscall::exitThread(size_t retval)
 {
   UserThread *thread = (UserThread *)currentThread;
-  thread->cleanupThread(retval);
+  thread->retval_ = retval;
   currentThread->kill();
 }
 

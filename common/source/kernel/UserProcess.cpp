@@ -227,15 +227,7 @@ void UserProcess::cancelNonCurrentThreads()
   {
     if ((*it)->getTID() != currentThread->getTID())
     {
-      if ((*it)->schedulable())
-      {
-        //(*it)->setState(Cancelled);
-        threads_lock_.release();
-        ((UserThread*)(*it))->cleanupThread(-1);
-        threads_lock_.acquire();
-        (*it)->kill();///  MULTITHREADING: Severe RC -3 
-        debug(USERPROCESS, "Set Thread-TID %zu of Process-PID %zu toBeDestroyed\n", (*it)->getTID(), getPID());
-      }
+      (*it)->kill();
     }
   }
   threads_lock_.release();
@@ -287,15 +279,8 @@ size_t UserProcess::cancelUserThread(size_t tid)
       debug(USERTHREAD, "Cancelation state: %ld", (((UserThread*)*it)->cancelstate_));
       if(((UserThread*)(*it))->switch_to_userspace_ && (*it) != currentThread )
       {
-        if ((*it)->schedulable())
-        {
-          (*it)->setState(Cancelled);
-          threads_lock_.release();
-          ((UserThread*)(*it))->cleanupThread(-1);
-          (*it)->kill();
-        /// TODO MULTITHREADING: Severe RC -3?????????????????
-        
-        }
+        threads_lock_.release();
+        (*it)->kill();
       }
       else
       {

@@ -85,7 +85,6 @@ uint32 Scheduler::schedule()
         ((UserThread*)currentThread)->canceltype_==((UserThread*)currentThread)->PTHREAD_CANCEL_ASYNCHRONOUS)
   {
     debug(SCHEDULER,"CANCEL CALLED FROM SCHEDULER\n");
-    ((UserThread*)currentThread)->cleanupThread(-1);
     currentThread->kill();
     return 0;
   }

@@ -214,7 +214,6 @@ extern "C" void pageFaultHandler(uint64 address, uint64 error)
       {
 
         debug(PAGEFAULT,"CANCEL CALLED FROM PAGEFAULT\n");
-        ((UserThread*)currentThread)->cleanupThread(-1);
         currentThread->kill();
       }
     arch_contextSwitch();

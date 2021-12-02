@@ -23,7 +23,7 @@ UserThread::UserThread(UserProcess *process) : Thread(process->getFsInfo(), proc
     join_ = NULL;
     to_cancel_ = false;
     first_thread_ = false;
-    retval_ = 0;
+    retval_ = -1;
     is_joinable_ = JOINABLE;
     is_killed_ = false;
 }
@@ -179,6 +179,8 @@ UserThread::~UserThread()
 
     debug(USERTHREAD, "~UserThread - TID %zu\n", getTID());
 
+    cleanupThread(retval_);
+
     process_->threads_lock_.acquire();
     process_->removeThread((Thread*) this);
     if (process_->getNumThreads() == 0)
@@ -272,12 +274,6 @@ ustl::list<size_t> UserThread::getUsedOffsets()
 
 void UserThread::cleanupThread(size_t retval)
 {
-  while (this->holding_lock_list_)
-  {
-      debug(USERPROCESS, "Yield\n");
-      Scheduler::instance()->yield();
-  }
-
   process_->threads_lock_.acquire();
   if (is_killed_)
   {
