@@ -16,13 +16,13 @@
 size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2, size_t arg3, size_t arg4, size_t arg5)
 {
   size_t return_value = 0;
-  debug(SYSCALL, "CurrentThread %ld to_cancel_: %d\n",((UserThread*)currentThread)->getTID(), (int)((UserThread*)currentThread)->to_cancel_);
+  //debug(SYSCALL, "CurrentThread %ld to_cancel_: %d\n",((UserThread*)currentThread)->getTID(), (int)((UserThread*)currentThread)->to_cancel_);
    /// TODO MULTITHREADING: RC -1
   ((UserThread*)currentThread)->getProcess()->threads_lock_.acquire();
   if(((UserThread*)currentThread)->to_cancel_)
   {
    
-  assert(((UserThread*)currentThread)->getProcess()->threads_lock_.isHeldBy(currentThread)));
+   assert((((UserThread*)currentThread)->getProcess()->threads_lock_.isHeldBy(currentThread)));
     /// TODO MULTITHREADING: This does not save retval?
     ((UserThread*)currentThread)->cleanupThread(-1);
     currentThread->kill();
@@ -112,12 +112,17 @@ size_t Syscall::syscallException(size_t syscall_number, size_t arg1, size_t arg2
     default:
       kprintf("Syscall::syscall_exception: Unimplemented Syscall Number %zd\n", syscall_number);
   }
+  ((UserThread*)currentThread)->getProcess()->threads_lock_.acquire();
   if(((UserThread*)currentThread)->to_cancel_)
   {
+   
+   assert((((UserThread*)currentThread)->getProcess()->threads_lock_.isHeldBy(currentThread)));
+    /// TODO MULTITHREADING: This does not save retval?
     ((UserThread*)currentThread)->cleanupThread(-1);
     currentThread->kill();
     return 0;
   }
+  ((UserThread*)currentThread)->getProcess()->threads_lock_.release();
   return return_value;
 }
 

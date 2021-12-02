@@ -2,6 +2,7 @@
 #include "../../../common/include/kernel/syscall-definitions.h"
 #include "sys/syscall.h"
 #include "sched.h"
+#include "stdio.h"
 /**
  * function stub
  * posix compatible signature - do not change the signature!
@@ -73,29 +74,34 @@ int pthread_detach(pthread_t thread)
  */
 int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
 {
-  size_t val = 0;
+  size_t initval = 1;
+  size_t ownerval = 0;
+  size_t valueval = 0;
   if(attr == 0) //default
   {
     if(!mutex || mutex->init == 1) return -1;
-    val = 1;
+
+
     asm("xchg %0,%1"
-    : "=r" (val)
-    : "m" (mutex->init), "0" (val)
+    : "=r" (valueval)
+    : "m" (mutex->value), "0" (valueval)
     : "memory");
-    val = 0;
+
     asm("xchg %0,%1"
-    : "=r" (val)
-    : "m" (mutex->value), "0" (val)
+    : "=r" (ownerval)
+    : "m" (mutex->owner), "0" (ownerval)
     : "memory");
-    val = 0;
+
     asm("xchg %0,%1"
-    : "=r" (val)
-    : "m" (mutex->owner), "0" (val)
+    : "=r" (initval)
+    : "m" (mutex->init), "0" (initval)
     : "memory");
+
   }
   else{
     // dunno what to do with the attr
     //checks needed
+    //printf("atribut sjeban");
     return -1;
   }
   return 0;
@@ -136,10 +142,18 @@ int pthread_mutex_destroy(pthread_mutex_t *mutex)
  */
 int pthread_mutex_lock(pthread_mutex_t *mutex)
 {
-  if(!mutex || mutex->init == 0 || mutex->owner == pthread_self())
+  if(!mutex || mutex->init == 0)
+    {
+      printf("mutex: %ld\n init:%d\n", (size_t)mutex, mutex->init);
+      printf("prva greska\n");
+      return -1;}
+  if(mutex->owner == pthread_self())
+  {
+    printf("druga greska\n");
     return -1;
+  }
   size_t val = 1;
-  if(mutex->owner)
+  if(mutex->owner != 0)
   {
     do
     {
@@ -147,7 +161,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex)
       : "=r" (val)
       : "m" (mutex->value), "0" (val)
       : "memory");
-    }while(val && !sched_yield());
+    }while(val & !sched_yield());
   }
   val = 1; 
   asm("xchg %0,%1"

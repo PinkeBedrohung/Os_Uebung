@@ -31,9 +31,9 @@ typedef unsigned int pthread_condattr_t;
 
 typedef struct
 {
-    int value;
-    int init;
-    int owner;
+    short value;
+    short init;
+    size_t owner;
 } pthread_mutex_t;
 
 extern int pthread_create(pthread_t *thread,
