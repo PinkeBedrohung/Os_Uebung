@@ -328,7 +328,7 @@ size_t Syscall::sleep(unsigned int seconds)
 
 int Syscall::exec(const char *path, char const* arg[])
 {
-  if ((size_t)path >= USER_BREAK || (size_t)arg != NULL)
+  if ((size_t)path >= USER_BREAK || (size_t)arg != NULL || path == NULL)
   {
     return -1;
   }
