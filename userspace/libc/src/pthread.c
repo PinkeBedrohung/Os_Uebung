@@ -74,37 +74,7 @@ int pthread_detach(pthread_t thread)
  */
 int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
 {
-  size_t initval = 1;
-  size_t ownerval = 0;
-  size_t valueval = 0;
-  if(attr == 0) //default
-  {
-    if(!mutex || mutex->init == 1) return -1;
-
-
-    asm("xchg %0,%1"
-    : "=r" (valueval)
-    : "m" (mutex->value), "0" (valueval)
-    : "memory");
-
-    asm("xchg %0,%1"
-    : "=r" (ownerval)
-    : "m" (mutex->owner), "0" (ownerval)
-    : "memory");
-
-    asm("xchg %0,%1"
-    : "=r" (initval)
-    : "m" (mutex->init), "0" (initval)
-    : "memory");
-
-  }
-  else{
-    // dunno what to do with the attr
-    //checks needed
-    //printf("atribut sjeban");
-    return -1;
-  }
-  return 0;
+  return -1;
 }
 
 /**
@@ -113,27 +83,7 @@ int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
  */
 int pthread_mutex_destroy(pthread_mutex_t *mutex)
 {
-  size_t val = 0;
-  // check if used, exist and inited
-  if(!mutex || mutex->init == 0 || mutex->owner)
-          return -1;
-  //reverse init -> set vals to 0
-    asm("xchg %0,%1"
-    : "=r" (val)
-    : "m" (mutex->init), "0" (val)
-    : "memory");
-    val = 0;
-    asm("xchg %0,%1"
-    : "=r" (val)
-    : "m" (mutex->value), "0" (val)
-    : "memory");
-    val = 0;
-    asm("xchg %0,%1"
-    : "=r" (val)
-    : "m" (mutex->owner), "0" (val)
-    : "memory");
-
-    return 0;
+ return -1;
 }
 
 /**
@@ -142,40 +92,7 @@ int pthread_mutex_destroy(pthread_mutex_t *mutex)
  */
 int pthread_mutex_lock(pthread_mutex_t *mutex)
 {
-  if(!mutex || mutex->init == 0)
-    {
-      printf("mutex: %ld\n init:%d\n", (size_t)mutex, mutex->init);
-      printf("prva greska\n");
-      return -1;}
-  if(mutex->owner == pthread_self())
-  {
-    printf("druga greska\n");
-    return -1;
-  }
-  size_t val = 1;
-  if(mutex->owner != 0)
-  {
-    do
-    {
-      asm("xchg %0,%1"
-      : "=r" (val)
-      : "m" (mutex->value), "0" (val)
-      : "memory");
-    }while(val & !sched_yield());
-  }
-  val = 1; 
-  asm("xchg %0,%1"
-  : "=r" (val)
-  : "m" (mutex->value), "0" (val)
-  : "memory");
-
-  val =  (size_t)pthread_self();
-  asm("xchg %0,%1"
-  : "=r" (val)
-  : "m" (mutex->owner), "0" (val)
-  : "memory");
-
-  return 0;
+  return -1;
 }
 
 /**
@@ -184,23 +101,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex)
  */
 int pthread_mutex_unlock(pthread_mutex_t *mutex)
 {
-  if(!mutex || mutex->init == 0 || mutex->owner == 0 || mutex->owner != pthread_self())
-    return -1;
-
-
-  size_t val = 0;
-  asm("xchg %0,%1"
-  : "=r" (val)
-  : "m" (mutex->value), "0" (val)
-  : "memory");
-
-  val = 0;
-  asm("xchg %0,%1"
-  : "=r" (val)
-  : "m" (mutex->owner), "0" (val)
-  : "memory");
-
-  return 0;
+  return -1;
 }
 
 /**
