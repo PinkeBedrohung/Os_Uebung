@@ -56,13 +56,14 @@ class UserProcess
     Mutex threads_lock_;
     Mutex retvals_lock_;
     Mutex available_offsets_lock_;
+    Mutex recursion_lock_;
     
 
     void freePageOffset(size_t offset);
     size_t getAvailablePageOffset();
     size_t getVPageOffset();
     void clearAvailableOffsets();
-    bool checkExecRecursion( char *path);
+    bool checkExecRecursion(ustl::string path);
 
   private:
     int32 fd_;
@@ -73,7 +74,7 @@ class UserProcess
     uint32 terminal_number_;
     UserProcess* parent_process_;
     ustl::list<UserProcess*> child_processes_;
-    ustl::list<char *> opend_process_list_;
+    ustl::list<ustl::string> opend_process_list_;
     ustl::list<int> opend_process_counter_;
 
     int32* binary_fd_counter_;
